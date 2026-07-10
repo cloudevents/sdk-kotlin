@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+**/build/
+
+# Kotlin
+.kotlin/
+
+# Kotlin/Native
+konan/
+
+# IDE — IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# macOS
+.DS_Store
+
+# Local Gradle configuration
+local.properties

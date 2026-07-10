@@ -1,0 +1,25 @@
+[versions]
+kotlin = "2.4.0"
+testBalloon = "1.0.1-K2.4.0"
+detekt = "1.23.8"
+spotless = "8.8.0"
+ktlint = "1.6.0"
+gradlePreCommit = "2.1.20"
+axionRelease = "1.21.2"
+
+[plugins]
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+testBalloon = { id = "de.infix.testBalloon", version.ref = "testBalloon" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+gradlePreCommit = { id = "org.danilopianini.gradle-pre-commit-git-hooks", version.ref = "gradlePreCommit" }
+axionRelease = { id = "pl.allegro.tech.build.axion-release", version.ref = "axionRelease" }
+
+[libraries]
+testBalloon-core = { module = "de.infix.testBalloon:testBalloon-framework-core", version.ref = "testBalloon" }
+# Gradle plugin marker artifacts consumed on the build-logic convention classpath.
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+detekt-gradlePlugin = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+spotless-gradlePlugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+testBalloon-gradlePlugin = { module = "de.infix.testBalloon:testBalloon-gradle-plugin", version.ref = "testBalloon" }
+# kotlin("test") added via kotlin DSL, not the catalog
