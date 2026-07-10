@@ -1,0 +1,9 @@
+# Strict detekt configuration — zero tolerance, no baseline.
+# The full default ruleset is active via `buildUponDefaultConfig = true` in the
+# convention plugin; this file only sets the build gate.
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+  warningsAsErrors: false
