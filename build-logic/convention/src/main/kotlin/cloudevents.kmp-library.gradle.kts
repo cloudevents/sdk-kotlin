@@ -1,4 +1,4 @@
-@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -37,6 +37,7 @@ kotlin {
     }
 
     // WebAssembly JS
+    @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         nodejs()
     }

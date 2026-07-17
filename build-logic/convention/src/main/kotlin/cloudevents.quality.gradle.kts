@@ -18,6 +18,10 @@ configure<SpotlessExtension> {
                 mapOf(
                     "ktlint_code_style" to "intellij_idea",
                     "indent_size" to "4",
+                    // Align ktlint's line-length ceiling with detekt's MaxLineLength (120) so the
+                    // two gates agree: ktlint wraps an over-long signature/expression body instead
+                    // of collapsing it onto a single line that detekt would then reject.
+                    "max_line_length" to "120",
                 ),
             )
 

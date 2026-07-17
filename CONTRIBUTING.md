@@ -290,8 +290,15 @@ in the repository. It does not require npm or any tooling beyond Gradle.
 
 ## 11. Spec References
 
-- [CloudEvents specification](https://github.com/cloudevents/spec) — the normative
-  source for event format, attributes, and protocol bindings
-- [CloudEvents SDK requirements](https://github.com/cloudevents/spec/blob/main/cloudevents/SDK.md) —
+This SDK conforms to **CloudEvents v1.0.2** — the latest released spec text. Verify all
+model, type-system, naming, and validation work against the pinned permalinks below, and
+cite the relevant section in your tests and pull requests. Do not track the in-progress
+1.0.3-wip text.
+
+- [CloudEvents spec v1.0.2](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md) —
+  the normative source for context attributes, the type system, and naming rules
+- [CloudEvents SDK requirements v1.0.2](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/SDK.md) —
   version-support policy and SDK conformance requirements
 - [CloudEvents website](https://cloudevents.io) — overview, links, and community resources
+
+See `docs/adr/0001-spec-authority-pinned-to-v1.0.2.md` for why the authority is pinned.

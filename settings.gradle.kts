@@ -23,6 +23,42 @@ plugins {
 }
 
 gitHooks {
+    // Run formatting + static analysis before every commit. spotlessApply auto-fixes
+    // formatting, then we re-stage only the files that were already staged so the fix
+    // lands in the same commit without pulling in unrelated working-tree changes.
+    // detektMetadataMain analyzes commonMain, where the model and validation code lives;
+    // a detekt finding (non-zero exit) aborts the commit. The full multi-source-set detekt
+    // and all-target tests remain gated by `gradle check` and CI.
+    preCommit {
+        from {
+            """
+            staged=${'$'}(git diff --cached --name-only --diff-filter=ACM -- '*.kt' '*.kts')
+            if [ -z "${'$'}staged" ]; then
+                ./gradlew detektMetadataMain --quiet || exit 1
+                exit 0
+            fi
+            # spotlessApply formats the whole working tree, so stash everything that is
+            # not staged first. This keeps unrelated unstaged edits (partially staged
+            # hunks and other files) out of the commit. --keep-index leaves the staged
+            # snapshot in place to be formatted; the stash is restored afterwards.
+            stashed=0
+            if ! git diff --quiet || [ -n "${'$'}(git ls-files --others --exclude-standard)" ]; then
+                git stash push --quiet --keep-index --include-untracked --message pre-commit-format && stashed=1
+            fi
+            ./gradlew spotlessApply detektMetadataMain --quiet
+            status=${'$'}?
+            if [ "${'$'}status" -eq 0 ]; then
+                printf '%s\n' "${'$'}staged" | while IFS= read -r f; do
+                    [ -f "${'$'}f" ] && git add -- "${'$'}f"
+                done
+            fi
+            if [ "${'$'}stashed" -eq 1 ]; then
+                git stash pop --quiet || echo "pre-commit: unstaged changes left in the stash; restore with 'git stash pop'"
+            fi
+            exit ${'$'}status
+            """.trimIndent()
+        }
+    }
     commitMsg { conventionalCommits() }
     createHooks()
 }
