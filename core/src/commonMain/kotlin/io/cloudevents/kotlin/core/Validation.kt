@@ -20,20 +20,27 @@ data class ValidationResult(val violations: List<ValidationViolation>) {
 }
 
 /**
- * Validates this event against the rules of its own [SpecVersion] and returns every violation
- * found.
+ * Validates this event against the rules of its own [SpecVersion], collecting every violation found.
  *
  * Both wire versions are validated, each against its own attribute set: a missing or empty REQUIRED
  * attribute is always a violation, and version-specific type and format rules are applied according
  * to [CloudEvent.specVersion].
+ *
+ * In [ValidationMode.STRICT] (the default) an invalid event raises [CloudEventValidationException];
+ * in [ValidationMode.LENIENT] the collected [ValidationResult] is returned without throwing.
  */
-fun CloudEvent.validate(): ValidationResult {
-    val violations = buildList {
-        addAll(requiredAttributeViolations())
-        addAll(commonFormatViolations())
-        addAll(versionSpecificViolations())
+fun CloudEvent.validate(mode: ValidationMode = ValidationMode.STRICT): ValidationResult {
+    val result = ValidationResult(collectViolations())
+    if (mode == ValidationMode.STRICT && !result.isValid) {
+        throw CloudEventValidationException(result)
     }
-    return ValidationResult(violations)
+    return result
+}
+
+private fun CloudEvent.collectViolations(): List<ValidationViolation> = buildList {
+    addAll(requiredAttributeViolations())
+    addAll(commonFormatViolations())
+    addAll(versionSpecificViolations())
 }
 
 private fun CloudEvent.requiredAttributeViolations(): List<ValidationViolation> = buildList {
@@ -55,7 +62,13 @@ private fun CloudEvent.commonFormatViolations(): List<ValidationViolation> = bui
     }
     addStringViolation("id", id)
     addStringViolation("type", type)
-    subject?.let { addStringViolation("subject", it) }
+    subject?.let {
+        if (it.isEmpty()) {
+            add(ValidationViolation("subject", "subject must be a non-empty string when present"))
+        } else {
+            addStringViolation("subject", it)
+        }
+    }
     dataContentType?.let { addStringViolation("datacontenttype", it) }
     for ((name, value) in extensions) {
         if (value is StringValue) addStringViolation(name, value.value)

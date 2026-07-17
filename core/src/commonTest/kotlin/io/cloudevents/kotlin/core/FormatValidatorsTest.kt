@@ -71,22 +71,22 @@ val formatValidationOnEventsTest by testSuite("Format validation on events") {
     fun event(block: CloudEventBuilder.() -> Unit) = cloudEvent("1", "/s", "t", block)
 
     test("an invalid source URI-reference is a violation") {
-        val result = event {} .copy(source = "has space").validate()
+        val result = event {} .copy(source = "has space").validate(ValidationMode.LENIENT)
         assertTrue(result.violations.any { it.attribute == "source" })
     }
 
     test("dataschema must be an absolute URI under v1.0") {
-        assertFalse(event { dataSchema = "/relative" }.validate().isValid)
-        assertTrue(event { dataSchema = "https://example.com/schema" }.validate().isValid)
+        assertFalse(event { dataSchema = "/relative" }.validate(ValidationMode.LENIENT).isValid)
+        assertTrue(event { dataSchema = "https://example.com/schema" }.validate(ValidationMode.LENIENT).isValid)
     }
 
     test("a control character in a String attribute is a violation") {
-        val result = event { subject = "badsubject" }.validate()
+        val result = event { subject = "badsubject" }.validate(ValidationMode.LENIENT)
         assertTrue(result.violations.any { it.attribute == "subject" })
     }
 
     test("a control character in a String extension is a violation") {
-        val result = event { extension("traceid", "badvalue") }.validate()
+        val result = event { extension("traceid", "badvalue") }.validate(ValidationMode.LENIENT)
         assertTrue(result.violations.any { it.attribute == "traceid" })
     }
 }
