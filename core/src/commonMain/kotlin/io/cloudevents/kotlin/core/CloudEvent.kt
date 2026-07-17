@@ -22,11 +22,12 @@ class CloudEvent internal constructor(
     val id: String,
     val source: String,
     val type: String,
-    val specVersion: SpecVersion,
-    val dataContentType: String?,
-    val dataSchema: String?,
-    val subject: String?,
-    val time: Instant?,
+    val specVersion: SpecVersion = SpecVersion.V1_0,
+    val dataContentType: String? = null,
+    val dataSchema: String? = null,
+    val subject: String? = null,
+    val time: Instant? = null,
+    val data: CloudEventData? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -38,7 +39,8 @@ class CloudEvent internal constructor(
             dataContentType == other.dataContentType &&
             dataSchema == other.dataSchema &&
             subject == other.subject &&
-            time == other.time
+            time == other.time &&
+            data == other.data
     }
 
     override fun hashCode(): Int {
@@ -50,11 +52,13 @@ class CloudEvent internal constructor(
         result = 31 * result + dataSchema.hashCode()
         result = 31 * result + subject.hashCode()
         result = 31 * result + time.hashCode()
+        result = 31 * result + data.hashCode()
         return result
     }
 
     override fun toString(): String = "CloudEvent(" +
         "specversion=${specVersion.wireValue}, id=$id, source=$source, type=$type, " +
-        "datacontenttype=$dataContentType, dataschema=$dataSchema, subject=$subject, time=$time" +
+        "datacontenttype=$dataContentType, dataschema=$dataSchema, subject=$subject, time=$time, " +
+        "data=$data" +
         ")"
 }
