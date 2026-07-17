@@ -30,6 +30,7 @@ data class ValidationResult(val violations: List<ValidationViolation>) {
 fun CloudEvent.validate(): ValidationResult {
     val violations = buildList {
         addAll(requiredAttributeViolations())
+        addAll(commonFormatViolations())
         addAll(versionSpecificViolations())
     }
     return ValidationResult(violations)
@@ -47,7 +48,32 @@ private fun CloudEvent.requiredAttributeViolations(): List<ValidationViolation> 
     }
 }
 
+/** Format rules shared by every version: `source` grammar and the `String`-type character rules. */
+private fun CloudEvent.commonFormatViolations(): List<ValidationViolation> = buildList {
+    if (source.isNotEmpty() && !Formats.isUriReference(source)) {
+        add(ValidationViolation("source", "source must be an RFC 3986 URI-reference"))
+    }
+    addStringViolation("id", id)
+    addStringViolation("type", type)
+    subject?.let { addStringViolation("subject", it) }
+    dataContentType?.let { addStringViolation("datacontenttype", it) }
+    for ((name, value) in extensions) {
+        if (value is StringValue) addStringViolation(name, value.value)
+    }
+}
+
+private fun MutableList<ValidationViolation>.addStringViolation(attribute: String, value: String) {
+    Formats.firstStringViolation(value)?.let { add(ValidationViolation(attribute, "$attribute $it")) }
+}
+
 private fun CloudEvent.versionSpecificViolations(): List<ValidationViolation> = when (specVersion) {
-    SpecVersion.V1_0 -> emptyList()
+    SpecVersion.V1_0 -> buildList {
+        dataSchema?.let {
+            if (!Formats.isAbsoluteUri(it)) {
+                add(ValidationViolation("dataschema", "dataschema must be an absolute URI"))
+            }
+        }
+    }
+
     SpecVersion.V0_3 -> emptyList()
 }
