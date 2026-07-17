@@ -28,7 +28,24 @@ class CloudEvent internal constructor(
     val subject: String? = null,
     val time: Instant? = null,
     val data: CloudEventData? = null,
+    extensions: Map<String, CloudEventAttributeValue> = emptyMap(),
 ) {
+    /**
+     * The extension context attributes, keyed by name. Values use the same type system as core
+     * attributes and every name satisfies the MUST-severity naming rules.
+     */
+    val extensions: Map<String, CloudEventAttributeValue> =
+        extensions.toMap()
+            .apply {
+                keys.forEach(AttributeNaming::requireValidName)
+            }
+
+    /** Returns the value of the extension attribute [name], or `null` if it is not present. */
+    fun getExtension(name: String): CloudEventAttributeValue? = extensions[name]
+
+    /** The names of the extension attributes present on this event. */
+    val extensionNames: Set<String> get() = extensions.keys
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is CloudEvent) return false
@@ -40,7 +57,8 @@ class CloudEvent internal constructor(
             dataSchema == other.dataSchema &&
             subject == other.subject &&
             time == other.time &&
-            data == other.data
+            data == other.data &&
+            extensions == other.extensions
     }
 
     override fun hashCode(): Int {
@@ -53,12 +71,19 @@ class CloudEvent internal constructor(
         result = 31 * result + subject.hashCode()
         result = 31 * result + time.hashCode()
         result = 31 * result + data.hashCode()
+        result = 31 * result + extensions.hashCode()
         return result
     }
 
     override fun toString(): String = "CloudEvent(" +
         "specversion=${specVersion.wireValue}, id=$id, source=$source, type=$type, " +
         "datacontenttype=$dataContentType, dataschema=$dataSchema, subject=$subject, time=$time, " +
-        "data=$data" +
+        "data=$data, extensions=$extensions" +
         ")"
 }
+
+/**
+ * Returns the extension attribute [name] narrowed to the type-system value type [T], or `null` if
+ * the extension is absent or has a different type. Mirrors the typed access core attributes have.
+ */
+inline fun <reified T : CloudEventAttributeValue> CloudEvent.getExtensionAs(name: String): T? = getExtension(name) as? T
