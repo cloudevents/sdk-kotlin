@@ -1,6 +1,57 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
-  ]
+    "config:recommended",
+    ":dependencyDashboard",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Europe/Madrid",
+  "schedule": ["before 6am on monday"],
+  "rangeStrategy": "pin",
+  "ignoreUnstable": true,
+  "configMigration": true,
+  "osvVulnerabilityAlerts": true,
+  "labels": ["dependencies"],
+  "dependencyDashboardTitle": "Renovate: dependency dashboard",
+  "packageRules": [
+    {
+      "description": "Bundle non-plugin library bumps from the version catalog and every KMP sourceSet dependency block (common/jvm/js/wasmJs/native/apple) into one PR. The Gradle manager reads coordinates from the build files rather than resolving per-target graphs, so dependencies added for any target are picked up here.",
+      "groupName": "gradle-libraries",
+      "matchManagers": ["gradle"],
+      "matchDepTypes": ["dependencies"]
+    },
+    {
+      "description": "Group Gradle plugin bumps separately from libraries; collapses the plugin/marker duplicate updates Renovate would otherwise open for a single shared version reference.",
+      "groupName": "gradle-plugins",
+      "matchManagers": ["gradle"],
+      "matchDepTypes": ["plugin"]
+    },
+    {
+      "description": "Kotlin toolchain lockstep. Kotlin (plugin + stdlib/reflect), KSP, and TestBalloon must move together; TestBalloon's version string encodes the Kotlin version and its releases lag Kotlin, so a Kotlin bump with no matching TestBalloon build breaks the test compile. Approval-gated so the update surfaces on the dashboard and the PR is opened only once a matching TestBalloon build exists.",
+      "matchPackageNames": [
+        "/^org\\.jetbrains\\.kotlin/",
+        "/^com\\.google\\.devtools\\.ksp/",
+        "/^de\\.infix\\.testBalloon/"
+      ],
+      "groupName": "kotlin-toolchain",
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Group GitHub Action updates; digests stay SHA-pinned via helpers:pinGitHubActionDigests.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Group Gradle wrapper bumps.",
+      "matchManagers": ["gradle-wrapper"],
+      "groupName": "gradle-wrapper"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security", "dependencies"],
+    "schedule": ["at any time"]
+  },
+  "lockFileMaintenance": {
+    "enabled": false
+  }
 }
