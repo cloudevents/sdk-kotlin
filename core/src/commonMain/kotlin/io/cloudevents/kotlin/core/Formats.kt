@@ -37,6 +37,10 @@ internal object Formats {
     private const val URI_GROUP_QUERY = 4
     private const val URI_GROUP_FRAGMENT = 5
 
+    private const val TOKEN_CHAR_MIN = 0x21
+    private const val TOKEN_CHAR_MAX = 0x7E
+    private const val TSPECIALS = "()<>@,;:\\\"/[]?="
+
     private val URI_REFERENCE =
         Regex("^(?:([^:/?#]+):)?(?://([^/?#]*))?([^?#]*)(?:\\?([^#]*))?(?:#(.*))?\$")
 
@@ -45,6 +49,14 @@ internal object Formats {
 
     /** True if [text] parses as a signed 32-bit integer (rejects out-of-range and non-numeric). */
     fun isSignedInt32(text: String): Boolean = text.toIntOrNull() != null
+
+    /**
+     * True if [text] is a valid RFC 2045 §6.1 content-transfer-encoding — an RFC 2045 token: a
+     * non-empty run of US-ASCII characters excluding space, control characters, and `tspecials`.
+     */
+    fun isContentTransferEncoding(text: String): Boolean = text.isNotEmpty() && text.all { it.isRfc2045TokenChar() }
+
+    private fun Char.isRfc2045TokenChar(): Boolean = code in TOKEN_CHAR_MIN..TOKEN_CHAR_MAX && this !in TSPECIALS
 
     /** True if [text] is an RFC 3986 URI-reference (a relative reference is permitted). */
     fun isUriReference(text: String): Boolean = isWellFormedUri(text)

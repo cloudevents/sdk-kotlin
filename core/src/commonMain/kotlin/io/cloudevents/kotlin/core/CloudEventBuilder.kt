@@ -16,6 +16,7 @@ import kotlin.time.Instant
 class CloudEventBuilder(val id: String, val source: String, val type: String) {
     var specVersion: SpecVersion = SpecVersion.V1_0
     var dataContentType: String? = null
+    var dataContentEncoding: String? = null
     var dataSchema: String? = null
     var subject: String? = null
     var time: Instant? = null
@@ -27,6 +28,11 @@ class CloudEventBuilder(val id: String, val source: String, val type: String) {
 
     fun withDataContentType(dataContentType: String?): CloudEventBuilder = apply {
         this.dataContentType = dataContentType
+    }
+
+    /** Sets `datacontentencoding` (a CloudEvents v0.3 attribute; not valid under v1.0). */
+    fun withDataContentEncoding(dataContentEncoding: String?): CloudEventBuilder = apply {
+        this.dataContentEncoding = dataContentEncoding
     }
 
     fun withDataSchema(dataSchema: String?): CloudEventBuilder = apply { this.dataSchema = dataSchema }
@@ -64,6 +70,7 @@ class CloudEventBuilder(val id: String, val source: String, val type: String) {
         type = type,
         specVersion = specVersion,
         dataContentType = dataContentType,
+        dataContentEncoding = dataContentEncoding,
         dataSchema = dataSchema,
         subject = subject,
         time = time,
@@ -81,6 +88,7 @@ class CloudEventBuilder(val id: String, val source: String, val type: String) {
         ): CloudEventBuilder = CloudEventBuilder(id ?: event.id, source ?: event.source, type ?: event.type).apply {
             specVersion = event.specVersion
             dataContentType = event.dataContentType
+            dataContentEncoding = event.dataContentEncoding
             dataSchema = event.dataSchema
             subject = event.subject
             time = event.time

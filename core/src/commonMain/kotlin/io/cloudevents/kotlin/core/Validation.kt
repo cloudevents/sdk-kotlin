@@ -80,13 +80,59 @@ private fun MutableList<ValidationViolation>.addStringViolation(attribute: Strin
 }
 
 private fun CloudEvent.versionSpecificViolations(): List<ValidationViolation> = when (specVersion) {
-    SpecVersion.V1_0 -> buildList {
-        dataSchema?.let {
-            if (!Formats.isAbsoluteUri(it)) {
-                add(ValidationViolation("dataschema", "dataschema must be an absolute URI"))
-            }
+    SpecVersion.V1_0 -> v1Violations()
+    SpecVersion.V0_3 -> v03Violations()
+}
+
+/** v1.0: `dataschema` is an absolute URI; `datacontentencoding` was removed in v1.0. */
+private fun CloudEvent.v1Violations(): List<ValidationViolation> = buildList {
+    dataSchema?.let {
+        if (!Formats.isAbsoluteUri(it)) {
+            add(ValidationViolation("dataschema", "dataschema must be an absolute URI"))
         }
     }
+    if (dataContentEncoding != null) {
+        add(ValidationViolation("datacontentencoding", "datacontentencoding is not a CloudEvents v1.0 attribute"))
+    }
+}
 
-    SpecVersion.V0_3 -> emptyList()
+/**
+ * v0.3: the schema URI is `schemaurl`, a URI-reference (not necessarily absolute); `datacontentencoding`
+ * is a non-empty string; attribute names MUST begin with a lowercase letter; and the type system omits
+ * `Boolean` and the absolute `URI` type.
+ */
+private fun CloudEvent.v03Violations(): List<ValidationViolation> = buildList {
+    dataSchema?.let {
+        if (!Formats.isUriReference(it)) {
+            add(ValidationViolation("schemaurl", "schemaurl must be an RFC 3986 URI-reference"))
+        }
+    }
+    dataContentEncoding?.let {
+        if (!Formats.isContentTransferEncoding(it)) {
+            add(
+                ValidationViolation(
+                    "datacontentencoding",
+                    "datacontentencoding must be an RFC 2045 content-transfer-encoding",
+                ),
+            )
+        }
+    }
+    for ((name, value) in extensions) {
+        if (name.first() !in 'a'..'z') {
+            add(ValidationViolation(name, "attribute name must begin with a lowercase letter under CloudEvents v0.3"))
+        }
+        addV03TypeViolation(name, value)
+    }
+}
+
+private fun MutableList<ValidationViolation>.addV03TypeViolation(name: String, value: CloudEventAttributeValue) {
+    when (value) {
+        is BooleanValue ->
+            add(ValidationViolation(name, "Boolean is not a CloudEvents v0.3 type"))
+
+        is UriValue ->
+            add(ValidationViolation(name, "the absolute URI type is not a CloudEvents v0.3 type; use a URI-reference"))
+
+        else -> Unit
+    }
 }

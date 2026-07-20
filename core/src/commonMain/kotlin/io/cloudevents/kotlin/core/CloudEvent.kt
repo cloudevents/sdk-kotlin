@@ -14,6 +14,12 @@ import kotlin.time.Instant
  * step and are not enforced by construction.
  *
  * Instances are created through the construction API rather than this constructor directly.
+ *
+ * A few attributes are version-specific. [dataSchema] carries the schema URI under both versions —
+ * serialized as `dataschema` (an absolute URI) under v1.0 and as `schemaurl` (a URI-reference) under
+ * v0.3. [dataContentEncoding] exists only in v0.3 (v1.0 removed it); setting it on a v1.0 event is a
+ * validation violation. Which attributes are legal for a given version is enforced by validation,
+ * not by construction.
  */
 // The parameter count mirrors the spec-defined context-attribute set, not incidental
 // complexity; the constructor is internal and callers use the construction API instead.
@@ -24,6 +30,7 @@ class CloudEvent internal constructor(
     val type: String,
     val specVersion: SpecVersion = SpecVersion.V1_0,
     val dataContentType: String? = null,
+    val dataContentEncoding: String? = null,
     val dataSchema: String? = null,
     val subject: String? = null,
     val time: Instant? = null,
@@ -54,6 +61,7 @@ class CloudEvent internal constructor(
             type == other.type &&
             specVersion == other.specVersion &&
             dataContentType == other.dataContentType &&
+            dataContentEncoding == other.dataContentEncoding &&
             dataSchema == other.dataSchema &&
             subject == other.subject &&
             time == other.time &&
@@ -67,6 +75,7 @@ class CloudEvent internal constructor(
         result = 31 * result + type.hashCode()
         result = 31 * result + specVersion.hashCode()
         result = 31 * result + dataContentType.hashCode()
+        result = 31 * result + dataContentEncoding.hashCode()
         result = 31 * result + dataSchema.hashCode()
         result = 31 * result + subject.hashCode()
         result = 31 * result + time.hashCode()
@@ -77,7 +86,8 @@ class CloudEvent internal constructor(
 
     override fun toString(): String = "CloudEvent(" +
         "specversion=${specVersion.wireValue}, id=$id, source=$source, type=$type, " +
-        "datacontenttype=$dataContentType, dataschema=$dataSchema, subject=$subject, time=$time, " +
+        "datacontenttype=$dataContentType, datacontentencoding=$dataContentEncoding, " +
+        "dataschema=$dataSchema, subject=$subject, time=$time, " +
         "data=$data, extensions=$extensions" +
         ")"
 }
