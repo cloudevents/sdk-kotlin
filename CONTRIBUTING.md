@@ -130,7 +130,9 @@ This project follows the [Conventional Commits specification](https://www.conven
   period, and fewer than 80 characters.
 - `type` must be one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
   `build`, `ci`, `chore`.
-- Use lower-case for the description.
+- Do not start the description with a capital letter or write it in Sentence, Title,
+  or ALL-CAPS case; proper nouns and type names (e.g. `CloudEvent`, `SpecVersion`) may
+  keep their casing.
 - Add a body or footer when the change needs further explanation or references an issue.
 
 **Examples of good commit messages:**
