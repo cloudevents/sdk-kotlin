@@ -34,6 +34,39 @@ For the authoritative policy definition, see:
 
 ---
 
+## Feature Support
+
+Support for the CloudEvents specification by version, and the Kotlin Multiplatform
+targets each feature runs on. The version columns mirror the Kotlin column of the upstream
+[SDK feature matrix](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/SDK.md#feature-support);
+the **Platforms** column is specific to this SDK. Because `:core` is pure `commonMain`,
+every feature it provides is available on **all** supported targets.
+
+|                        | [v0.3](https://github.com/cloudevents/spec/tree/v0.3) | [v1.0](https://github.com/cloudevents/spec/tree/v1.0) | Platforms |
+|:-----------------------|:-----------------------------------------------------:|:-----------------------------------------------------:|:----------|
+| CloudEvents Core       | :heavy_check_mark:<sup>†</sup>                        | :heavy_check_mark:                                    | All targets<sup>‡</sup> |
+| JSON Event Format      | :x:                                                   | :x:                                                   | —         |
+| Avro Event Format      | :x:                                                   | :x:                                                   | —         |
+| Protobuf Event Format  | :x:                                                   | :x:                                                   | —         |
+| HTTP Protocol Binding  | :x:                                                   | :x:                                                   | —         |
+| Kafka Protocol Binding | :x:                                                   | :x:                                                   | —         |
+| AMQP Protocol Binding  | :x:                                                   | :x:                                                   | —         |
+| MQTT Protocol Binding  | :x:                                                   | :x:                                                   | —         |
+| NATS Protocol Binding  | :x:                                                   | :x:                                                   | —         |
+
+:heavy_check_mark: supported &nbsp;•&nbsp; :x: not yet implemented
+
+<sub>† v0.3 core is fully supported — the v0.3 attribute set (`schemaurl`, `datacontentencoding`)
+with version-aware validation and naming rules. The v0.3 `Map`/`Any` attribute value types, whose
+canonical encoding is JSON, arrive with the JSON format module.</sub>
+<br>
+<sub>‡ The shared `commonMain` source compiles to an artifact for every target in the
+[KMP Target Matrix](#kmp-target-matrix) below. Its test suite currently *runs* on JVM,
+JS (Node), Wasm/JS, and `linuxX64`; the Apple and Windows targets compile but execute
+their tests only on macOS/Windows CI runners (marked "Planned CI").</sub>
+
+---
+
 ## Modules
 
 | Module | Status | Description |
@@ -46,23 +79,25 @@ For the authoritative policy definition, see:
 
 ## KMP Target Matrix
 
-| Target | Platform | CI Status |
-|--------|----------|-----------|
-| `jvm` | Any (JDK 21+) | Tested |
-| `js` (Node) | Node.js >= 18 | Tested |
-| `wasmJs` (Node) | Node.js >= 18 | Tested |
-| `linuxX64` | Linux x86-64 | Tested |
-| `linuxArm64` | Linux ARM64 | Planned CI |
-| `macosX64` | macOS x86-64 | Planned CI |
-| `macosArm64` | macOS Apple Silicon | Planned CI |
-| `iosArm64` | iOS device (ARM64) | Planned CI |
-| `iosX64` | iOS Simulator (x86-64) | Planned CI |
-| `iosSimulatorArm64` | iOS Simulator (Apple Silicon) | Planned CI |
-| `mingwX64` | Windows x86-64 | Planned CI |
+| Target | Platform | CI Runner | CI Status |
+|--------|----------|-----------|-----------|
+| `jvm` | Any (JDK 21+) | ubuntu | Tested |
+| `js` (Node) | Node.js >= 18 | ubuntu | Tested |
+| `wasmJs` (Node) | Node.js >= 18 | ubuntu | Tested |
+| `linuxX64` | Linux x86-64 | ubuntu | Tested |
+| `linuxArm64` | Linux ARM64 | ubuntu | Compiled |
+| `macosArm64` | macOS Apple Silicon | macos | Tested |
+| `iosSimulatorArm64` | iOS Simulator (Apple Silicon) | macos | Tested |
+| `macosX64` | macOS x86-64 | macos | Compiled |
+| `iosX64` | iOS Simulator (x86-64) | macos | Compiled |
+| `iosArm64` | iOS device (ARM64) | macos | Compiled |
+| `mingwX64` | Windows x86-64 | windows | Tested |
 
-**"Tested"** targets run on `ubuntu-latest` in CI on every PR.
-**"Planned CI"** targets compile on any host but require a macOS (Apple targets) or
-Windows (`mingwX64`) runner for test execution; these are added in a future CI expansion.
+**"Tested"** — the test suite runs across the ubuntu, macOS, and Windows jobs on every pull
+request that changes source (doc-only changes are skipped by the build workflow's `paths-ignore`).
+**"Compiled"** — compiled and linked in the same jobs, but its tests are not executed:
+`linuxArm64` has no ARM runner, the `macosX64`/`iosX64` variants share the same source as
+their tested Apple-Silicon counterparts, and `iosArm64` is a device-only target.
 
 ---
 
@@ -83,6 +118,84 @@ dependencies {
 
 Group: `io.cloudevents`
 Artifact: `cloudevents-kotlin-core`
+
+---
+
+## Working with CloudEvents
+
+All types live in the `io.cloudevents.kotlin.core` package.
+
+### Constructing an event
+
+The `cloudEvent` DSL is the idiomatic entry point; a chainable builder and an immutable
+`copy` are also available.
+
+```kotlin
+import io.cloudevents.kotlin.core.*
+import kotlin.time.Instant
+
+// DSL
+val event = cloudEvent(id = "A234-1234-1234", source = "/sensors/tn-1234567", type = "com.example.temperature") {
+    subject = "temperature"
+    time = Instant.parse("2024-06-15T14:30:00Z")
+    dataContentType = "application/json"
+}
+
+// Chainable builder
+val built = CloudEventBuilder("A234-1234-1234", "/sensors/tn-1234567", "com.example.temperature")
+    .withSubject("temperature")
+    .build()
+
+// Immutable copy — derives a new event, leaving the original untouched
+val reidentified = event.copy(id = "B456-5678-5678")
+```
+
+### Attribute type system
+
+Attribute values are drawn from the CloudEvents type system; every type round-trips to and
+from its canonical string form.
+
+```kotlin
+BooleanValue(true).canonicalString                       // "true"
+IntegerValue(42).canonicalString                         // "42"
+BinaryValue(byteArrayOf(1, 2, 3)).canonicalString        // Base64 (RFC 4648)
+TimestampValue.fromCanonicalString("2024-06-15T14:30:00Z")
+```
+
+### Extension attributes
+
+Extensions use the same type system as core attributes, and their names are validated
+against the CloudEvents naming rules when set.
+
+```kotlin
+val event = cloudEvent("A234-1234-1234", "/sensors/tn-1234567", "com.example.temperature") {
+    extension("traceid", "abc-123")
+    extension("retrycount", 3)
+}
+
+val raw: CloudEventAttributeValue? = event.getExtension("traceid")
+val typed: StringValue? = event.getExtensionAs("traceid")
+```
+
+### Validation
+
+Validation runs against the rules of the event's own `SpecVersion`. Strict mode (the
+default) throws on an invalid event; lenient mode collects every violation. Each version
+is checked against its own attribute set, type system, and naming rules — for example under
+v1.0 a `datacontentencoding` attribute is a violation (it was removed in v1.0) and `dataschema`
+must be an absolute URI, while under v0.3 `datacontentencoding` is valid and the schema URI is
+`schemaurl`, which must be a URI-reference.
+
+```kotlin
+// Strict (default): throws CloudEventValidationException if invalid
+event.validate()
+
+// Lenient: inspect all violations without throwing
+val result = event.validate(ValidationMode.LENIENT)
+if (!result.isValid) {
+    result.violations.forEach { println("${it.attribute}: ${it.message}") }
+}
+```
 
 ---
 
