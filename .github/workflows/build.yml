@@ -1,29 +1,86 @@
-# Project build on every push. Skips pushes that only touch documentation or other
-# non-source files so doc-only changes don't spend CI minutes on a full Gradle build.
-name: Build
+# Builds and tests every published target across an OS matrix. The common source is compiled
+# once per target; the targets differ only in where their test binary can execute, which is
+# what this matrix distributes.
+#
+# The `build` task (assemble + check) is run only on ubuntu: it compiles every target, runs
+# the quality gates (Spotless, detekt, commonMain purity) once, and executes the tests for
+# every target whose binary runs on Linux (JVM, JS/Node, Wasm/JS, linuxX64) — the Kotlin
+# plugin skips the other targets' test tasks on an incompatible host. Running `build` on the
+# other runners would recompile everything and re-run those same tests and gates, so instead
+# each other leg runs only the test tasks locked to its OS: the Apple targets on macOS and
+# mingwX64 on windows. Together the three legs test every target exactly once, no duplication.
+#
+# Doc-only changes are skipped. Commit/PR-title linting is handled by pr-checks.yml.
+name: Build and test
 
 on:
   push:
+    branches: [main]
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
-      - '.github/**/*.md'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build and test
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: JVM, JS, Wasm & Linux + quality
+            quality: true
+            # `build` runs assemble + check: detekt across every source set, Spotless, and
+            # the TestBalloon suites on the jvm, js (node), wasmJs (node), and linuxX64 targets.
+            # linuxArm64 is compiled but its tests cannot run on an x86-64 runner.
+            tasks: build
+          - os: macos-latest
+            name: Apple targets
+            quality: false
+            # macos-latest is Apple Silicon: macosArm64 and the iOS simulator run their tests;
+            # the x86-64 and device variants (same shared source) are compiled only.
+            tasks: >-
+              macosArm64Test iosSimulatorArm64Test
+              compileKotlinMacosX64 compileKotlinIosX64 compileKotlinIosArm64
+          - os: windows-latest
+            name: Windows target
+            quality: false
+            tasks: mingwX64Test
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
         with:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
-      - name: Build, analyze, and test
-        run: ./gradlew build
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+      - name: Check commonMain platform purity
+        if: matrix.quality
+        run: |
+          # Fail on any JVM-only import in shared source. The ^import anchor ignores
+          # commented-out lines; an empty/absent tree means there is nothing to violate.
+          violations=$(grep -rnE "^import (java|javax|kotlin\.jvm)\." core/src/commonMain/ 2>/dev/null || true)
+          if [ -n "$violations" ]; then
+            echo "ERROR: JVM-only imports are not allowed in commonMain:"
+            echo "$violations"
+            exit 1
+          fi
+          echo "commonMain purity check passed (no JVM-only imports in shared source)"
+      - name: Build and test
+        run: ./gradlew ${{ matrix.tasks }}
