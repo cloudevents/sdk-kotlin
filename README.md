@@ -2,7 +2,8 @@
 
 **A CNCF project** — part of the [CloudEvents](https://cloudevents.io) ecosystem.
 
-![Build](https://github.com/cloudevents/sdk-kotlin/actions/workflows/pr-checks.yml/badge.svg)
+![Maven Central Version](https://img.shields.io/maven-central/v/io.cloudevents/cloudevents-kotlin-core)
+![Build](https://img.shields.io/github/actions/workflow/status/cloudevents/sdk-kotlin/.github%2Fworkflows%2Fbuild.yml?logo=github)
 
 ---
 
