@@ -1,6 +1,7 @@
 # Manual release: derives the next version with axion-release from the chosen increment,
-# builds and tests, creates and pushes the git tag, then publishes the full signed KMP
-# artifact matrix to Maven Central and cuts a GitHub release with the SBOM attached.
+# builds and tests, creates and pushes the git tag, publishes the full signed KMP artifact
+# matrix to Maven Central, cuts a GitHub release (git-cliff notes + SBOM), and commits the
+# regenerated CHANGELOG.md back to the default branch.
 #
 # The job runs on macos-latest because Kotlin/Native Apple targets can only be built there.
 # A single macOS runner builds the entire matrix (JVM + JS + Wasm + all Apple + both Linux +
@@ -65,16 +66,55 @@ jobs:
         # is fully published and downloadable, not just VALIDATED (the plugin default). This
         # guarantees the artifacts are available before the next step announces the GitHub release.
         run: ./gradlew publishAndReleaseToMavenCentral -PmavenCentralDeploymentValidation=PUBLISHED --no-configuration-cache
-      - name: Generate SBOM and publish GitHub release
+      - name: Generate SBOM
+        # Regenerate the CycloneDX SBOM now that the release tag exists so it carries the
+        # release version. This runs before any changelog file is written, so the working tree
+        # is still clean and axion-release resolves the exact released (non-SNAPSHOT) version.
+        run: ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom
+      - name: Generate release notes
+        # git-cliff turns the Conventional Commits of the tag created above into the release
+        # body. --latest selects only that tag's section; the tag is already in the checkout.
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+      - name: Publish GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Regenerate the CycloneDX SBOM now that the release tag exists so it carries the
-          # release version, then create the GitHub release and attach it for downstream
-          # consumers and security tooling.
-          ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom
           TAG=$(git describe --tags --abbrev=0)
           gh release create "$TAG" \
             --title "$TAG" \
-            --generate-notes \
+            --notes-file RELEASE_NOTES.md \
             core/build/reports/cyclonedx/bom.cdx.json
+      - name: Regenerate CHANGELOG.md
+        # The cumulative changelog covering every release, written to the repository root.
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+      - name: Commit and push the changelog
+        env:
+          # Route the branch name through an env var rather than interpolating it into the shell,
+          # so a crafted ref cannot inject code into the run step.
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          # git-cliff only writes the file; commit the regenerated changelog back to the default
+          # branch as a follow-up to the release tag (the tag itself points at the release commit).
+          # CHANGELOG.md matches **/*.md in build.yml's paths-ignore so this push does not retrigger
+          # CI, and chore(release) is excluded from future changelogs by cliff.toml.
+          # git status --porcelain (not git diff) so a brand-new untracked CHANGELOG.md — the state
+          # on the very first release — is detected and committed, not silently skipped.
+          if [[ -n "$(git status --porcelain -- CHANGELOG.md)" ]]; then
+            git add CHANGELOG.md
+            git commit --signoff -m "chore(release): update CHANGELOG for $(git describe --tags --abbrev=0)"
+            git push origin "HEAD:$RELEASE_REF"
+          fi

@@ -1,0 +1,50 @@
+# git-cliff configuration — https://git-cliff.org
+#
+# Turns the repository's Conventional Commits into grouped release notes. The release
+# workflow runs git-cliff with `--latest` to populate the GitHub release body for the tag
+# it just created; the same config also produces a full CHANGELOG.md when run without
+# `--latest` (`git-cliff -o CHANGELOG.md`).
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project are documented in this file.
+"""
+body = """
+{% if version %}\
+## {{ version | trim_start_matches(pat="v") }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## Unreleased
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}\
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+# Only Conventional Commits contribute to the changelog; anything else is dropped.
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+# Group commits into sections. The leading <!-- N --> keys order the sections and are
+# stripped from the rendered heading by the `striptags` filter in the body template.
+commit_parsers = [
+    { message = "^feat", group = "<!-- 0 -->Features" },
+    { message = "^fix", group = "<!-- 1 -->Bug Fixes" },
+    { message = "^perf", group = "<!-- 2 -->Performance" },
+    { message = "^refactor", group = "<!-- 3 -->Refactoring" },
+    { message = "^docs?", group = "<!-- 4 -->Documentation" },
+    { message = "^test", group = "<!-- 5 -->Testing" },
+    { message = "^(ci|build)", group = "<!-- 6 -->Build & CI" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^(chore|style)", group = "<!-- 7 -->Miscellaneous" },
+]
+protect_breaking_commits = false
+filter_commits = false
+topo_order = false
+sort_commits = "oldest"

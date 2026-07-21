@@ -23,3 +23,6 @@ local.properties
 
 # Transient output of the dependency-verification CI cross-check
 gradle/verification-metadata.dryrun.xml
+
+# Transient git-cliff release-notes output (the release body); CHANGELOG.md is committed
+RELEASE_NOTES.md
