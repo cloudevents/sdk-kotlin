@@ -62,10 +62,12 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
-        # mavenCentralDeploymentValidation=PUBLISHED makes the task block until the deployment
-        # is fully published and downloadable, not just VALIDATED (the plugin default). This
-        # guarantees the artifacts are available before the next step announces the GitHub release.
-        run: ./gradlew publishAndReleaseToMavenCentral -PmavenCentralDeploymentValidation=PUBLISHED --no-configuration-cache
+        # Wait only until the deployment is VALIDATED, not fully PUBLISHED. The bundle is uploaded
+        # as AUTOMATIC, so Central still auto-publishes it; VALIDATED confirms it passed validation
+        # (a bad POM or signature fails the build) without blocking on the long, variable publish
+        # phase, which overran the plugin's 900s poll timeout and failed the job even though the
+        # release had succeeded on Central.
+        run: ./gradlew publishAndReleaseToMavenCentral -PmavenCentralDeploymentValidation=VALIDATED --no-configuration-cache
       - name: Generate SBOM
         # Regenerate the CycloneDX SBOM now that the release tag exists so it carries the
         # release version. This runs before any changelog file is written, so the working tree
