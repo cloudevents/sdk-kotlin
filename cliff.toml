@@ -12,7 +12,7 @@ header = """
 All notable changes to this project are documented in this file.
 """
 body = """
-{% if version %}\
+{% if version %}
 ## {{ version | trim_start_matches(pat="v") }} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else %}\
 ## Unreleased
