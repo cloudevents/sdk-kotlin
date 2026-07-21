@@ -84,3 +84,20 @@ jobs:
           echo "commonMain purity check passed (no JVM-only imports in shared source)"
       - name: Build and test
         run: ./gradlew ${{ matrix.tasks }}
+      - name: Verify dependency metadata integrity
+        if: matrix.quality
+        run: |
+          # Re-resolve the whole dependency graph from source, bypassing the Gradle cache, and diff
+          # it against the committed metadata. A poisoned local cache at generation time — or any
+          # drift from Maven Central — surfaces as a non-empty diff. With --dry-run, Gradle writes
+          # the regenerated checksums to gradle/verification-metadata.dryrun.xml (a separate file, so
+          # the committed metadata is left untouched) and skips compilation/tests while still
+          # resolving every configuration, so the check stays cheap and covers the same task set used
+          # to generate the committed file.
+          ./gradlew --write-verification-metadata sha256 --dry-run --refresh-dependencies resolveAllDependencies build
+          if ! diff -u gradle/verification-metadata.xml gradle/verification-metadata.dryrun.xml; then
+            echo "ERROR: dependency verification metadata drift detected."
+            echo "Regenerate with the command in CONTRIBUTING.md and commit the result."
+            exit 1
+          fi
+          echo "Dependency verification metadata matches a clean re-resolution from source."

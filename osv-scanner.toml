@@ -1,0 +1,19 @@
+# OSV-Scanner suppressions.
+#
+# This file suppresses advisories that are confined to the build/plugin classpath (detekt,
+# spotless, axion-release, Dokka, Gradle itself) and are therefore not present in any artifact
+# the SDK ships. The runtime SBOM (build/reports/cyclonedx/bom.cdx.json) is scanned separately
+# and represents what consumers actually depend on.
+#
+# Both OSV scans are advisory (non-blocking); the blocking CVE gate is the PR Dependency Review
+# workflow. Prefer letting Renovate bump the affected build plugin over adding a suppression —
+# only suppress an advisory here once it has been triaged and confirmed to be build-classpath-only
+# with no available upgrade. Always record a reason, and set ignoreUntil so the suppression
+# re-surfaces for periodic review rather than silently persisting forever.
+#
+# Example (uncomment and adapt):
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2026-12-31
+# reason = "Build-classpath-only (Gradle plugin transitive); not shipped in the published SDK."

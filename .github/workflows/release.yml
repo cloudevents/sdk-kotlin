@@ -44,3 +44,16 @@ jobs:
         run: |
           ./gradlew createRelease -PversionIncrement=${{ inputs.versionIncrement }}
           git push --follow-tags origin HEAD
+      - name: Generate SBOM and publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Regenerate the CycloneDX SBOM now that the release tag exists so it carries the
+          # release version, then create the GitHub release and attach it for downstream
+          # consumers and security tooling.
+          ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom
+          TAG=$(git describe --tags --abbrev=0)
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            core/build/reports/cyclonedx/bom.cdx.json

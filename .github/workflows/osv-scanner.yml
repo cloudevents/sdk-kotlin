@@ -1,0 +1,96 @@
+# Scheduled vulnerability scanning with OSV-Scanner. Two advisory (non-blocking) scans upload
+# their results to the Security tab (Code Scanning):
+#
+#   - runtime: scans the generated CycloneDX SBOM, i.e. what the SDK ships to consumers.
+#   - build-tooling: scans the Gradle dependency-verification metadata, surfacing plugin and
+#     build-classpath transitives; advisories confined to the build classpath are suppressed via
+#     osv-scanner.toml.
+#
+# Both are non-blocking on purpose — the blocking CVE gate is the PR Dependency Review workflow.
+# This job exists to surface, track, and triage advisories over time, not to break the build.
+# The OSV-Scanner CLI is installed from a pinned release and verified against the upstream
+# SHA256SUMS before it runs.
+name: OSV-Scanner
+
+on:
+  schedule:
+    - cron: "30 4 * * 1" # 04:30 UTC every Monday
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-scan:
+    name: Runtime dependencies (SBOM)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - name: Generate SBOM
+        run: ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom
+      - name: Install OSV-Scanner
+        run: |
+          version=v2.4.0
+          base="https://github.com/google/osv-scanner/releases/download/$version"
+          curl -sSL -o osv-scanner "$base/osv-scanner_linux_amd64"
+          curl -sSL -o osv-scanner_SHA256SUMS "$base/osv-scanner_SHA256SUMS"
+          # Verify the downloaded binary against the upstream combined checksum file before use.
+          grep 'osv-scanner_linux_amd64$' osv-scanner_SHA256SUMS \
+            | sed 's#osv-scanner_linux_amd64#osv-scanner#' \
+            | sha256sum -c -
+          chmod +x osv-scanner
+          echo "$PWD" >> "$GITHUB_PATH"
+      - name: Scan SBOM
+        continue-on-error: true
+        run: |
+          osv-scanner scan --format sarif -L core/build/reports/cyclonedx/bom.cdx.json \
+            > results-runtime.sarif || true
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@eec0bff2f6c15bf3f1e8a0152f94d17664a06a06 # v4
+        with:
+          sarif_file: results-runtime.sarif
+          category: osv-runtime
+
+  build-tooling-scan:
+    name: Build tooling (verification metadata)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Install OSV-Scanner
+        run: |
+          version=v2.4.0
+          base="https://github.com/google/osv-scanner/releases/download/$version"
+          curl -sSL -o osv-scanner "$base/osv-scanner_linux_amd64"
+          curl -sSL -o osv-scanner_SHA256SUMS "$base/osv-scanner_SHA256SUMS"
+          grep 'osv-scanner_linux_amd64$' osv-scanner_SHA256SUMS \
+            | sed 's#osv-scanner_linux_amd64#osv-scanner#' \
+            | sha256sum -c -
+          chmod +x osv-scanner
+          echo "$PWD" >> "$GITHUB_PATH"
+      - name: Scan verification metadata
+        continue-on-error: true
+        run: |
+          osv-scanner scan --config=osv-scanner.toml --format sarif -L gradle/verification-metadata.xml \
+            > results-build-tooling.sarif || true
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@eec0bff2f6c15bf3f1e8a0152f94d17664a06a06 # v4
+        with:
+          sarif_file: results-build-tooling.sarif
+          category: osv-build-tooling

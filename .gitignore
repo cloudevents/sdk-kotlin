@@ -20,3 +20,6 @@ out/
 
 # Local Gradle configuration
 local.properties
+
+# Transient output of the dependency-verification CI cross-check
+gradle/verification-metadata.dryrun.xml

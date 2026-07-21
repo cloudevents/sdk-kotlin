@@ -304,3 +304,104 @@ cite the relevant section in your tests and pull requests. Do not track the in-p
 - [CloudEvents website](https://cloudevents.io) — overview, links, and community resources
 
 See `docs/adr/0001-spec-authority-pinned-to-v1.0.2.md` for why the authority is pinned.
+
+---
+
+## 12. Supply-Chain Security
+
+The build and CI pipeline are hardened to catch known CVEs early, lock the dependency graph
+against tampering or resolution drift, and produce a machine-readable inventory of what the SDK
+ships. This section documents the moving parts a contributor is most likely to touch.
+
+### 12.1 Dependency verification metadata
+
+`gradle/verification-metadata.xml` pins a SHA-256 checksum for every artifact Gradle resolves —
+the plugin classpath, every Kotlin Multiplatform target's klibs, and the test dependencies. Gradle
+enforces these checksums automatically on **every** invocation: if a downloaded artifact's checksum
+does not match the committed value, the build fails.
+
+**Regenerate the metadata** whenever a dependency, plugin, or the Kotlin/Gradle toolchain changes:
+
+```bash
+gradle --write-verification-metadata sha256 --no-parallel --refresh-dependencies \
+  resolveAllDependencies build
+```
+
+- `resolveAllDependencies` (defined in the root build) resolves every resolvable configuration
+  across all projects, so all target klibs are captured — not just the ones the current host can
+  compile. `build` is added so task-execution-time tooling classpaths (detekt, Spotless) are
+  captured too.
+- `--refresh-dependencies` forces a clean re-download from the source repositories, so a stale or
+  poisoned local cache cannot seed a bad checksum into the committed file.
+- `--no-parallel` keeps resolution deterministic while the file is being written.
+
+**Trust model.** Verification is checksum-only; PGP signature verification is deferred
+(`verify-signatures=false`). Both binary artifacts and their Gradle module/POM metadata are
+checksummed (`verify-metadata=true`), so metadata tampering is caught as well. Three host-specific
+build toolchains are listed under `<trusted-artifacts>` rather than checksummed, because each is
+published with a per-OS archive/classifier and so cannot be checksummed from a single host — a
+Linux-generated file would otherwise fail the macOS and Windows build legs:
+
+- the **Kotlin/Native compiler** (`org.jetbrains.kotlin:kotlin-native-prebuilt`), resolved via Maven
+  with an OS/arch classifier (e.g. `-macos-aarch64.tar.gz`, `-windows-x86_64.zip`);
+- the **Node.js runtime** and **Yarn** used by the JS/Wasm targets.
+
+These are build toolchains, not shipped dependencies. npm/yarn *package* dependencies are likewise
+not covered here — they are pinned by the committed `kotlin-js-store` lockfiles.
+
+**Generation strategy.** Because our runtime dependency set is minimal and every dependency klib is
+a host-independent Maven Central artifact, the complete file is generated on Linux and enforced on
+all runners. The `Verify dependency metadata integrity` step in `build.yml` guards against drift:
+on the Linux leg it re-resolves the whole graph from source into a throwaway
+`gradle/verification-metadata.dryrun.xml` and diffs it against the committed file, so a checksum
+that only matches a poisoned local cache is caught by a clean pull from Maven Central.
+
+### 12.2 Renovate and the verification-metadata gate
+
+Dependency updates are automated by the [Renovate](https://docs.renovatebot.com/) app
+(`renovate.json`): version-catalog libraries, Gradle plugins, the Kotlin+KSP+TestBalloon toolchain
+(kept in lockstep because TestBalloon is Kotlin-version-pinned), GitHub Actions digests, and the
+Gradle wrapper are each grouped into their own PRs.
+
+The Kotlin JS/Wasm yarn lockfiles under `kotlin-js-store/` are deliberately **not** Renovate-managed:
+they have no `package.json`, so Renovate's npm manager has no manifest to drive, and their webpack/
+yarn toolchain versions are pinned by the Kotlin Gradle plugin. They refresh when the Kotlin toolchain
+is bumped (the `kotlin-toolchain` group), which is the only point at which they should change.
+
+**Important friction to expect:** a Renovate bump PR changes dependency versions but the
+Mend-hosted Renovate app **cannot** run the regeneration command (`postUpgradeTasks` is unavailable
+on the cloud app), so every such PR will **fail** the verification-metadata gate. To land it, check
+out the Renovate branch locally, run the regeneration command from §12.1, and force-push the
+updated `gradle/verification-metadata.xml` onto the branch.
+
+### 12.3 Software Bill of Materials (SBOM)
+
+A CycloneDX SBOM is produced by the `org.cyclonedx.bom` plugin:
+
+```bash
+gradle :cloudevents-kotlin-core:cyclonedxDirectBom
+# -> core/build/reports/cyclonedx/bom.cdx.json
+```
+
+The SBOM is scoped to the JVM target's runtime classpath (`jvmRuntimeClasspath`) — the conventional
+scope for a KMP library, matching how coverage is measured on the JVM target. **Limitation:**
+native/JS/Wasm klib dependencies are not represented; per-target SBOMs are future work. The release
+workflow regenerates the SBOM against the release tag and attaches it to the GitHub Release for
+downstream consumers and security tooling.
+
+### 12.4 Vulnerability scanning
+
+- **PR Dependency Review** (`dependency-review.yml`) is the **blocking** gate: it fails a PR that
+  introduces a HIGH-or-above severity CVE.
+- **OSV-Scanner** (`osv-scanner.yml`) runs weekly and on demand as two **advisory** (non-blocking)
+  scans that upload SARIF to the Security tab: one over the runtime SBOM (what ships to consumers)
+  and one over the verification metadata (build/plugin classpath). Advisories confined to the build
+  classpath can be suppressed in `osv-scanner.toml` once triaged — prefer letting Renovate bump the
+  affected plugin over adding a permanent suppression.
+
+### 12.5 Pinned GitHub Actions
+
+Every `uses:` reference in the workflows is pinned to a full commit SHA with a trailing version
+comment (e.g. `actions/checkout@<sha> # v6.0.3`). Tags are mutable and can be repointed at malicious
+commits; a SHA is immutable. Renovate keeps both the digest and the version comment up to date via
+`helpers:pinGitHubActionDigests`, so pinning does not mean the actions go stale.
