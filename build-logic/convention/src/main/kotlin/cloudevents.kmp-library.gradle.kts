@@ -4,8 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("de.infix.testBalloon")
     // Core Gradle plugin — lets the KMP plugin generate publication metadata (POM,
-    // Gradle module metadata) carrying the io.cloudevents coordinates. The full
-    // Maven Central / signing pipeline is intentionally not configured here.
+    // Gradle module metadata) carrying the io.cloudevents coordinates. This gives every
+    // library module publishable coordinates; the Maven Central upload and GPG signing are
+    // layered on publishable modules by the separate cloudevents.publishing convention.
     `maven-publish`
 }
 

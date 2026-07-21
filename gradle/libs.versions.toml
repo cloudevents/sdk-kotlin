@@ -7,6 +7,7 @@ ktlint = "1.6.0"
 gradlePreCommit = "2.1.20"
 axionRelease = "1.21.2"
 cyclonedx = "3.3.0"
+mavenPublish = "0.37.0"
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -16,6 +17,7 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 gradlePreCommit = { id = "org.danilopianini.gradle-pre-commit-git-hooks", version.ref = "gradlePreCommit" }
 axionRelease = { id = "pl.allegro.tech.build.axion-release", version.ref = "axionRelease" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
+mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
 
 [libraries]
 testBalloon-core = { module = "de.infix.testBalloon:testBalloon-framework-core", version.ref = "testBalloon" }
@@ -24,4 +26,5 @@ kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", ve
 detekt-gradlePlugin = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 spotless-gradlePlugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
 testBalloon-gradlePlugin = { module = "de.infix.testBalloon:testBalloon-gradle-plugin", version.ref = "testBalloon" }
+mavenPublish-gradlePlugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "mavenPublish" }
 # kotlin("test") added via kotlin DSL, not the catalog

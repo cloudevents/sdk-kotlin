@@ -349,6 +349,17 @@ Linux-generated file would otherwise fail the macOS and Windows build legs:
 These are build toolchains, not shipped dependencies. npm/yarn *package* dependencies are likewise
 not covered here — they are pinned by the committed `kotlin-js-store` lockfiles.
 
+Further trust rules cover IDE behaviour: `-sources.jar` and `-javadoc.jar` artifacts are trusted by
+name, and the `org.apache.groovy:groovy` and `gradle:gradle` coordinates are trusted. IntelliJ
+downloads sources/javadoc for the plugin classpath, resolves Gradle's own bundled Groovy from a
+repository to display its sources, and pulls the Gradle source distribution (`gradle-*-src.zip`) for
+Gradle API insight. None of those artifacts ever join the build or runtime classpath (Groovy and the
+Gradle runtime are supplied by the Gradle distribution/wrapper at build time), and the CLI build
+never fetches them, so pinning them is neither possible from a single generation nor a security
+gain. The Groovy trust is scoped to the single `org.apache.groovy:groovy` module the IDE resolves
+rather than the whole group. Without these trusts an IntelliJ *Sync* fails verification even though
+the command-line build passes.
+
 **Generation strategy.** Because our runtime dependency set is minimal and every dependency klib is
 a host-independent Maven Central artifact, the complete file is generated on Linux and enforced on
 all runners. The `Verify dependency metadata integrity` step in `build.yml` guards against drift:
@@ -405,3 +416,70 @@ Every `uses:` reference in the workflows is pinned to a full commit SHA with a t
 comment (e.g. `actions/checkout@<sha> # v6.0.3`). Tags are mutable and can be repointed at malicious
 commits; a SHA is immutable. Renovate keeps both the digest and the version comment up to date via
 `helpers:pinGitHubActionDigests`, so pinning does not mean the actions go stale.
+
+---
+
+## 13. Releasing
+
+Releases publish the full Kotlin Multiplatform artifact matrix to Maven Central through the
+[Central Portal](https://central.sonatype.com/) under the `io.cloudevents` group id. Publishing is
+driven by the `cloudevents.publishing` convention plugin (built on
+[`com.vanniktech.maven.publish`](https://vanniktech.github.io/gradle-maven-publish-plugin/)) and is
+wired into the `Release` workflow.
+
+### 13.1 Artifact matrix
+
+A KMP publication is a root module plus one Maven module per target. This project publishes:
+
+| Maven coordinate | Contents |
+|---|---|
+| `io.cloudevents:cloudevents-kotlin-core` | Root module — Gradle module metadata + POM |
+| `…-core-jvm` | JVM jar (also consumable by plain Maven/Gradle JVM users) |
+| `…-core-js` | JS klib |
+| `…-core-wasm-js` | Wasm-JS klib |
+| `…-core-linuxx64`, `…-core-linuxarm64` | Linux native klibs |
+| `…-core-macosx64`, `…-core-macosarm64`, `…-core-iosarm64`, `…-core-iosx64`, `…-core-iossimulatorarm64` | Apple native klibs |
+| `…-core-mingwx64` | Windows native klib |
+
+Each module carries its own jar/klib, sources jar, javadoc jar, POM, and module metadata, and every
+file is GPG-signed (`.asc`).
+
+### 13.2 Verifying coordinates locally
+
+`publishToMavenLocal` requires no credentials — the local build resolves to a `-SNAPSHOT` version,
+and SNAPSHOTs do not need a signature. Use it to confirm the coordinates and generated metadata:
+
+```bash
+gradle publishToMavenLocal
+# -> ~/.m2/repository/io/cloudevents/cloudevents-kotlin-core[-jvm|-js|…]/
+```
+
+### 13.3 Cutting a release
+
+Releases run from the **`Release`** workflow (`workflow_dispatch`), which executes on
+`macos-latest` — Kotlin/Native Apple targets can only be built on macOS, and a single macOS runner
+builds the entire matrix so the complete signed set lands in one Central Portal deployment. The
+workflow:
+
+1. Builds and tests the matrix.
+2. Derives and pushes the next git tag with axion-release (from the chosen increment).
+3. Signs and uploads every module and auto-releases the deployment to Maven Central
+   (`publishAndReleaseToMavenCentral`).
+4. Generates the release SBOM and cuts the GitHub release.
+
+### 13.4 Required repository secrets
+
+Credentials are supplied only through CI secrets, injected as `ORG_GRADLE_PROJECT_*` environment
+variables, and never committed. A release cannot publish until these are set on the repository:
+
+| GitHub secret | Gradle property | What it is |
+|---|---|---|
+| `MAVEN_CENTRAL_USERNAME` | `mavenCentralUsername` | Central Portal **user token** username (Central Portal → Account → Generate User Token; not the account login) |
+| `MAVEN_CENTRAL_PASSWORD` | `mavenCentralPassword` | Central Portal user token password |
+| `SIGNING_KEY` | `signingInMemoryKey` | ASCII-armored GPG private key (`gpg --armor --export-secret-keys`); public half published to a keyserver |
+| `SIGNING_PASSWORD` | `signingInMemoryKeyPassword` | Passphrase of the GPG key |
+| `SIGNING_KEY_ID` | `signingInMemoryKeyId` | Last 8 chars of the key id — **optional**, only needed if the keyring holds more than one secret key |
+
+`GITHUB_TOKEN` is provided automatically by Actions. Because the group is `io.cloudevents`, the
+Central Portal account behind the token must be authorized to publish to the `io.cloudevents`
+namespace.

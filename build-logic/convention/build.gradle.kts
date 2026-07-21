@@ -12,4 +12,5 @@ dependencies {
     implementation(libs.detekt.gradlePlugin)
     implementation(libs.spotless.gradlePlugin)
     implementation(libs.testBalloon.gradlePlugin)
+    implementation(libs.mavenPublish.gradlePlugin)
 }

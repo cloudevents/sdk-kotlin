@@ -1,6 +1,7 @@
 plugins {
     id("cloudevents.kmp-library")
     id("cloudevents.quality")
+    id("cloudevents.publishing")
     alias(libs.plugins.cyclonedx)
 }
 

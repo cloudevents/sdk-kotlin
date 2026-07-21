@@ -1,6 +1,11 @@
 # Manual release: derives the next version with axion-release from the chosen increment,
-# builds and tests, then creates and pushes the git tag. Artifact publishing is not wired
-# yet — this stops after tagging.
+# builds and tests, creates and pushes the git tag, then publishes the full signed KMP
+# artifact matrix to Maven Central and cuts a GitHub release with the SBOM attached.
+#
+# The job runs on macos-latest because Kotlin/Native Apple targets can only be built there.
+# A single macOS runner builds the entire matrix (JVM + JS + Wasm + all Apple + both Linux +
+# mingw), so the complete signed matrix lands in one Central Portal deployment. A Linux runner
+# would silently omit the Apple targets.
 name: Release
 
 on:
@@ -21,8 +26,8 @@ permissions:
 
 jobs:
   release:
-    name: Tag release
-    runs-on: ubuntu-latest
+    name: Release
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -44,6 +49,22 @@ jobs:
         run: |
           ./gradlew createRelease -PversionIncrement=${{ inputs.versionIncrement }}
           git push --follow-tags origin HEAD
+      - name: Publish signed artifact matrix to Maven Central
+        env:
+          # Central Portal user-token credentials and the in-memory GPG key are injected as
+          # ORG_GRADLE_PROJECT_* so the vanniktech plugin picks them up as Gradle properties.
+          # They are supplied only by CI secrets and never committed. The tag was pushed in the
+          # previous step, so axion-release now resolves the released (non-SNAPSHOT) version,
+          # which is what gets signed and uploaded.
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+        # mavenCentralDeploymentValidation=PUBLISHED makes the task block until the deployment
+        # is fully published and downloadable, not just VALIDATED (the plugin default). This
+        # guarantees the artifacts are available before the next step announces the GitHub release.
+        run: ./gradlew publishAndReleaseToMavenCentral -PmavenCentralDeploymentValidation=PUBLISHED --no-configuration-cache
       - name: Generate SBOM and publish GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
