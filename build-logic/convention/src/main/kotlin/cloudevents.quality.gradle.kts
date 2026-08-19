@@ -4,6 +4,7 @@ plugins {
     id("com.diffplug.spotless")
     id("io.gitlab.arturbosch.detekt")
     id("org.jetbrains.kotlinx.kover")
+    id("org.jetbrains.dokka")
 }
 
 configure<SpotlessExtension> {
