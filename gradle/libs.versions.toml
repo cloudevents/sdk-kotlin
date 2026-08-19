@@ -9,6 +9,7 @@ axionRelease = "1.21.2"
 cyclonedx = "3.3.0"
 mavenPublish = "0.37.0"
 kover = "0.9.8"
+dokka = "2.2.0"
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -20,6 +21,7 @@ axionRelease = { id = "pl.allegro.tech.build.axion-release", version.ref = "axio
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
 mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 
 [libraries]
 testBalloon-core = { module = "de.infix.testBalloon:testBalloon-framework-core", version.ref = "testBalloon" }
@@ -30,4 +32,5 @@ spotless-gradlePlugin = { module = "com.diffplug.spotless:spotless-plugin-gradle
 testBalloon-gradlePlugin = { module = "de.infix.testBalloon:testBalloon-gradle-plugin", version.ref = "testBalloon" }
 mavenPublish-gradlePlugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "mavenPublish" }
 kover-gradlePlugin = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
+dokka-gradlePlugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokka" }
 # kotlin("test") added via kotlin DSL, not the catalog

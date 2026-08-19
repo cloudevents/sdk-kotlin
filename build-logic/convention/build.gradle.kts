@@ -14,4 +14,5 @@ dependencies {
     implementation(libs.testBalloon.gradlePlugin)
     implementation(libs.mavenPublish.gradlePlugin)
     implementation(libs.kover.gradlePlugin)
+    implementation(libs.dokka.gradlePlugin)
 }
