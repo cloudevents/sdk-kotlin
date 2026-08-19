@@ -94,6 +94,22 @@ jobs:
           name: coverage
           path: core/build/reports/kover
           if-no-files-found: error
+      - name: Generate Dokka API documentation
+        if: matrix.quality
+        run: ./gradlew :cloudevents-kotlin-core:dokkaGenerate
+      - name: Upload api-docs artifact
+        if: matrix.quality
+        # api-docs are uploaded as a build artifact only in this change; nothing is published.
+        # Follow-up (separate PR): a dedicated "docs" job that deploys core/build/dokka/html to
+        # GitHub Pages via actions/upload-pages-artifact + actions/deploy-pages against a Pages
+        # environment with the required gh-pages/GITHUB_TOKEN + pages:write permissions and an
+        # id-token: write. That is intentionally out of scope here because it needs write-scoped
+        # contents permissions and a Pages environment, so the upload stays artifact-only.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: api-docs
+          path: core/build/dokka
+          if-no-files-found: error
       - name: Verify dependency metadata integrity
         if: matrix.quality
         run: |
