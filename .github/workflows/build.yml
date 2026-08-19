@@ -84,6 +84,16 @@ jobs:
           echo "commonMain purity check passed (no JVM-only imports in shared source)"
       - name: Build and test
         run: ./gradlew ${{ matrix.tasks }}
+      - name: Generate Kover code coverage report
+        if: matrix.quality
+        run: ./gradlew :cloudevents-kotlin-core:koverHtmlReport :cloudevents-kotlin-core:koverXmlReport
+      - name: Upload coverage artifact
+        if: matrix.quality
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage
+          path: core/build/reports/kover
+          if-no-files-found: error
       - name: Verify dependency metadata integrity
         if: matrix.quality
         run: |
