@@ -13,4 +13,5 @@ dependencies {
     implementation(libs.spotless.gradlePlugin)
     implementation(libs.testBalloon.gradlePlugin)
     implementation(libs.mavenPublish.gradlePlugin)
+    implementation(libs.kover.gradlePlugin)
 }
