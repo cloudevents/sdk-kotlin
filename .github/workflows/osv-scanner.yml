@@ -37,7 +37,7 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Generate SBOM
-        run: ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom
+        run: ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom :cloudevents-kotlin-json:cyclonedxDirectBom
       - name: Install OSV-Scanner
         run: |
           version=v2.4.0
@@ -54,6 +54,7 @@ jobs:
         continue-on-error: true
         run: |
           osv-scanner scan --format sarif -L core/build/reports/cyclonedx/bom.cdx.json \
+            -L json/build/reports/cyclonedx/bom.cdx.json \
             > results-runtime.sarif || true
       - name: Upload SARIF
         if: always()
