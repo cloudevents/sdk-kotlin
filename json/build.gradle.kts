@@ -31,3 +31,12 @@ kotlin {
         }
     }
 }
+
+// Publish under this module's own coordinates/POM instead of the core defaults. The extension
+// (cloudevents.publishing) is the single override seam — never override `mavenPublishing {}`
+// here, or the core POM strings would risk leaking onto this module's POM.
+cloudeventsPublishing {
+    artifactId = "cloudevents-kotlin-json"
+    pomName = "CloudEvents Kotlin SDK :: JSON Event Format"
+    pomDescription = "CloudEvents JSON event format (structured + batch) for the Kotlin SDK"
+}
