@@ -31,7 +31,8 @@
       "matchPackageNames": [
         "/^org\\.jetbrains\\.kotlin/",
         "/^com\\.google\\.devtools\\.ksp/",
-        "/^de\\.infix\\.testBalloon/"
+        "/^de\\.infix\\.testBalloon/",
+        "/^org\\.jetbrains\\.kotlinx:kotlinx-serialization/"
       ],
       "groupName": "kotlin-toolchain",
       "dependencyDashboardApproval": true
