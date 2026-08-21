@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.spotless) apply false
     alias(libs.plugins.axionRelease)
+    alias(libs.plugins.kotlinSerialization) apply false
 }
 
 // Git-tag-driven versioning. With no release tags yet, axion derives 0.1.0-SNAPSHOT
