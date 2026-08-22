@@ -5,6 +5,7 @@ package io.cloudevents.kotlin.json
 import io.cloudevents.kotlin.core.BooleanValue
 import io.cloudevents.kotlin.core.CloudEventAttributeValue
 import io.cloudevents.kotlin.core.CloudEventBuilder
+import io.cloudevents.kotlin.core.Formats
 import io.cloudevents.kotlin.core.IntegerValue
 import io.cloudevents.kotlin.core.SpecVersion
 import io.cloudevents.kotlin.core.StringValue
@@ -41,7 +42,7 @@ private fun addExtension(builder: CloudEventBuilder, name: String, element: Json
 internal fun isReservedMember(name: String, specVersion: SpecVersion): Boolean {
     if (name in CORE_RESERVED_MEMBERS) return true
     return when (specVersion) {
-        SpecVersion.V1_0 -> name == "dataschema"
+        SpecVersion.V1_0 -> name == "dataschema" || name == "data_base64"
         SpecVersion.V0_3 -> name == "schemaurl" || name == "datacontentencoding"
     }
 }
@@ -56,7 +57,6 @@ private val CORE_RESERVED_MEMBERS =
         "subject",
         "time",
         "data",
-        "data_base64",
     )
 
 private fun decodeExtensionValue(element: JsonElement, name: String): CloudEventAttributeValue {
@@ -68,12 +68,23 @@ private fun decodeExtensionValue(element: JsonElement, name: String): CloudEvent
 
 private fun toAttributeValue(element: JsonElement): CloudEventAttributeValue? {
     val primitive = element as? JsonPrimitive ?: return null
-    val integer = primitive.intOrNull
-    val flag = primitive.booleanOrNull
+    // Check isString first: quoted literals like "42" or "true" must stay as String,
+    // not be coerced to Integer/Boolean (intOrNull/booleanOrNull parse the content regardless of quoting).
     return when {
-        integer != null -> IntegerValue(integer)
-        flag != null -> BooleanValue(flag)
-        primitive.isString -> StringValue(primitive.content)
+        primitive.isString -> validatedString(primitive.content)
+        primitive.intOrNull != null -> IntegerValue(primitive.intOrNull!!)
+        primitive.booleanOrNull != null -> BooleanValue(primitive.booleanOrNull!!)
         else -> null
     }
+}
+
+/**
+ * Routes a wire string through core's String-character checker (ADR 0005 / 0006): a value that
+ * violates the CloudEvents String type (control characters, noncharacters, unpaired surrogates) cannot
+ * form a valid extension attribute and is rejected at the reader rather than being silently trusted and
+ * only surfacing later via validation.
+ */
+private fun validatedString(text: String): CloudEventAttributeValue? {
+    val violation = Formats.firstStringViolation(text)
+    return if (violation == null) StringValue(text) else null
 }
