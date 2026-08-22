@@ -3,7 +3,10 @@
 package io.cloudevents.kotlin.json
 
 import de.infix.testBalloon.framework.core.testSuite
+import io.cloudevents.kotlin.core.BooleanValue
+import io.cloudevents.kotlin.core.IntegerValue
 import io.cloudevents.kotlin.core.SpecVersion
+import io.cloudevents.kotlin.core.StringValue
 import kotlin.io.encoding.Base64
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -13,11 +16,20 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * Vendored conformance fixtures: the CloudEvents spec JSON-format examples (§3.2) and the batch
- * example (§4.3) plus edge cases mirrored from the reference sdk-java json-jackson test suite. All
- * comparisons are SEMANTIC: the JSON data that decodes to an [io.cloudevents.kotlin.core.CloudEvent] is
- * kept in the module's data-origin carrier, so assertions inspect the reconstructed event (and its
- * raw JSON element) instead of comparing canonical bytes; timestamps compare as parsed instants.
+ * Vendored conformance fixtures — pinned source and provenance:
+ *
+ * - **Spec**: CloudEvents v1.0.2 JSON event format, §3.2 examples (Binary / XML / JSON object-number
+ *   and string data, `data_base64` without a content type) and §4.3 batch example, taken from
+ *   <https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/formats/json-format.md>.
+ * - **Reference SDK**: edge cases mirrored from the sdk-java `json-jackson` suite
+ *   (`JsonFormatTest`, the resource JSON files under `formats/json-jackson/src/test/resources`) —
+ *   text/base64 data forms, decimal and out-of-range integer extensions, invalid extension names,
+ *   control-character strings.
+ *
+ * All comparisons are SEMANTIC: the JSON data that decodes to an
+ * [io.cloudevents.kotlin.core.CloudEvent] is kept in the module's data-origin carrier, so assertions
+ * inspect the reconstructed event (and its raw JSON element) instead of comparing canonical bytes;
+ * timestamps compare as parsed instants.
  */
 val jsonEventFormatConformanceTest by testSuite("JSON event format — conformance fixtures") {
     test("spec §3.2 example: Binary-valued data with a non-JSON content type uses data_base64") {
@@ -105,6 +117,10 @@ val jsonEventFormatConformanceTest by testSuite("JSON event format — conforman
         assertEquals(SpecVersion.V1_0, event.specVersion)
         assertIs<StringData>(event.data)
         assertEquals("Hello World Lorena!", (event.data as StringData).text)
+        // Verify the offset timestamp is normalized to UTC on re-encode.
+        assertTrue(
+            "\"time\":\"2018-04-26T12:48:09Z\"" in JsonEventFormat.encodeToString(event),
+        )
     }
 
     test("mirrors sdk-java: a decimal-valued extension is rejected (not an Integer)") {
@@ -123,8 +139,32 @@ val jsonEventFormatConformanceTest by testSuite("JSON event format — conforman
         }
     }
 
+    test("a quoted numeric string extension stays StringValue, not IntegerValue") {
+        val event = JsonEventFormat.decodeFromString(
+            """{"specversion":"1.0","id":"1","type":"mock.test","source":"/test","quotedint":"42"}""",
+        )
+        assertIs<StringValue>(event.getExtension("quotedint"))
+        assertEquals("42", event.getExtension("quotedint")?.canonicalString)
+        // Round-trip must preserve the quoted form.
+        assertTrue("\"quotedint\":\"42\"" in JsonEventFormat.encodeToString(event))
+    }
+
+    test("a quoted boolean string extension stays StringValue, not BooleanValue") {
+        val event = JsonEventFormat.decodeFromString(
+            """{"specversion":"1.0","id":"1","type":"mock.test","source":"/test","quotedbool":"true"}""",
+        )
+        assertIs<StringValue>(event.getExtension("quotedbool"))
+        assertEquals("true", event.getExtension("quotedbool")?.canonicalString)
+        assertTrue("\"quotedbool\":\"true\"" in JsonEventFormat.encodeToString(event))
+    }
+
     test("mirrors sdk-java: an invalid extension name is rejected rather than silently dropped") {
         val doc = """{"specversion":"1.0","id":"1","type":"mock.test","source":"http://localhost/source","a_invalid_name":"x"}"""
+        assertFailsWith<JsonEventFormatException> { JsonEventFormat.decodeFromString(doc) }
+    }
+
+    test("mirrors sdk-java: a string extension with a control character is rejected at decode") {
+        val doc = """{"specversion":"1.0","id":"1","type":"mock.test","source":"http://localhost/source","ext":"bad\u0001string"}"""
         assertFailsWith<JsonEventFormatException> { JsonEventFormat.decodeFromString(doc) }
     }
 
@@ -132,8 +172,11 @@ val jsonEventFormatConformanceTest by testSuite("JSON event format — conforman
         val event = JsonEventFormat.decodeFromString(
             """{"specversion":"1.0","id":"1","type":"mock.test","source":"http://localhost/source","dataschema":"http://localhost/schema","datacontenttype":"application/json","data":{},"subject":"sub","time":"2018-04-26T14:48:09+02:00","astring":"aaa","aboolean":true,"anumber":10}""",
         )
+        assertIs<StringValue>(event.getExtension("astring"))
         assertEquals("aaa", event.getExtension("astring")?.canonicalString)
+        assertIs<BooleanValue>(event.getExtension("aboolean"))
         assertEquals("true", event.getExtension("aboolean")?.canonicalString)
+        assertIs<IntegerValue>(event.getExtension("anumber"))
         assertEquals("10", event.getExtension("anumber")?.canonicalString)
     }
 

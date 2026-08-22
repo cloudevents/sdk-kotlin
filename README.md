@@ -217,6 +217,7 @@ decodes structured-mode `application/cloudevents+json` documents and batch-mode
 
 ```kotlin
 import io.cloudevents.kotlin.json.JsonEventFormat
+import io.cloudevents.kotlin.core.CloudEvent
 import io.cloudevents.kotlin.core.SpecVersion
 import kotlin.time.Instant
 
