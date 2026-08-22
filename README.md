@@ -46,7 +46,7 @@ every feature it provides is available on **all** supported targets.
 |                        | [v0.3](https://github.com/cloudevents/spec/tree/v0.3) | [v1.0](https://github.com/cloudevents/spec/tree/v1.0) | Platforms |
 |:-----------------------|:-----------------------------------------------------:|:-----------------------------------------------------:|:----------|
 | CloudEvents Core       | :heavy_check_mark:<sup>†</sup>                        | :heavy_check_mark:                                    | All targets<sup>‡</sup> |
-| JSON Event Format      | :x:                                                   | :x:                                                   | —         |
+| JSON Event Format      | :heavy_check_mark:<sup>§</sup>                        | :heavy_check_mark:                                    | All targets<sup>‡</sup> |
 | Avro Event Format      | :x:                                                   | :x:                                                   | —         |
 | Protobuf Event Format  | :x:                                                   | :x:                                                   | —         |
 | HTTP Protocol Binding  | :x:                                                   | :x:                                                   | —         |
@@ -59,12 +59,17 @@ every feature it provides is available on **all** supported targets.
 
 <sub>† v0.3 core is fully supported — the v0.3 attribute set (`schemaurl`, `datacontentencoding`)
 with version-aware validation and naming rules. The v0.3 `Map`/`Any` attribute value types, whose
-canonical encoding is JSON, arrive with the JSON format module.</sub>
+canonical encoding is JSON, are not part of this SDK's core model, which uses the same
+type-system hierarchy for both versions.</sub>
 <br>
 <sub>‡ The shared `commonMain` source compiles to an artifact for every target in the
 [KMP Target Matrix](#kmp-target-matrix) below. Its test suite currently *runs* on JVM,
 JS (Node), Wasm/JS, and `linuxX64`; the Apple and Windows targets compile but execute
 their tests only on macOS/Windows CI runners (marked "Planned CI").</sub>
+<br>
+<sub>§ The JSON event format (`:cloudevents-kotlin-json`) supports structured-mode
+`application/cloudevents+json` and batch-mode `application/cloudevents-batch+json` for
+both v1.0 and v0.3 — see [JSON Event Format](#json-event-format) below.</sub>
 
 ---
 
@@ -73,7 +78,8 @@ their tests only on macOS/Windows CI runners (marked "Planned CI").</sub>
 | Module | Status | Description |
 |--------|--------|-------------|
 | `:core` | Active | CloudEvent data model, type system, attribute validation, and Message-SPI interfaces. Stdlib-only, no third-party runtime dependencies. |
-| Format modules (JSON, Avro, Protobuf) | Planned | Encode and decode CloudEvents in each event format. |
+| `:cloudevents-kotlin-json` | Active | JSON event format: encode/decode structured-mode `application/cloudevents+json` and batch-mode `application/cloudevents-batch+json` for v1.0 and v0.3. Uses kotlinx-serialization. |
+| Format modules (Avro, Protobuf) | Planned | Encode and decode CloudEvents in each event format. |
 | Protocol binding modules (HTTP, Kafka, AMQP, ...) | Planned | Transport-specific binary and structured content modes. |
 
 ---
@@ -197,6 +203,40 @@ if (!result.isValid) {
     result.violations.forEach { println("${it.attribute}: ${it.message}") }
 }
 ```
+
+---
+
+## JSON Event Format
+
+The `:cloudevents-kotlin-json` module implements the CloudEvents
+[JSON event format](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/formats/json-format.md)
+for both supported wire versions (v1.0 and v0.3), on every KMP target. It encodes and
+decodes structured-mode `application/cloudevents+json` documents and batch-mode
+`application/cloudevents-batch+json` arrays. All types live in the
+`io.cloudevents.kotlin.json` package and the entry point is the `JsonEventFormat` object.
+
+```kotlin
+import io.cloudevents.kotlin.json.JsonEventFormat
+import io.cloudevents.kotlin.core.SpecVersion
+import kotlin.time.Instant
+
+// Encode a single event (structured mode).
+val json: String = JsonEventFormat.encodeToString(event)
+
+// Decode a structured-mode document.
+val decoded: CloudEvent = JsonEventFormat.decodeFromString(json)
+
+// Batch mode: a list of events ↔ a JSON array (mixed versions allowed).
+val batch: String = JsonEventFormat.encodeBatch(listOf(event))
+val events: List<CloudEvent> = JsonEventFormat.decodeBatch(batch)
+```
+
+The codec follows the spec's §3.1.1 data routing: a JSON-declared `datacontenttype` embeds
+the payload as a raw JSON value under `data`; binary payloads route to `data_base64` (v1.0)
+or base64-in-`data` with `datacontentencoding: "base64"` (v0.3); explicit `data: null` is
+kept distinct from an absent `data` member. Timestamps are canonicalized to UTC (compare by
+`Instant`, never by canonical-string bytes). Decoding validates strictly by default — an
+invalid event throws `JsonEventFormatException` rather than being silently trusted.
 
 ---
 
