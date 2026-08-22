@@ -9,7 +9,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
 import kotlin.io.encoding.Base64
 
 /**
@@ -51,7 +50,7 @@ private fun readV03Data(root: JsonObject, hasData: Boolean, contentType: String?
 
 private fun routeDataElement(element: JsonElement, contentType: String?): CloudEventData {
     val jsonDeclared = isJsonContentType(contentType)
-    val text = (element as? JsonPrimitive)?.content
+    val text = (element as? JsonPrimitive)?.takeIf { it.isString }?.content
     return when {
         jsonDeclared -> JsonData(element)
         text != null -> StringData(text)
@@ -63,7 +62,7 @@ private fun routeDataElement(element: JsonElement, contentType: String?): CloudE
 }
 
 private fun decodeBase64Member(element: JsonElement, name: String): Base64Data {
-    val text = (element as? JsonPrimitive)?.content
+    val text = (element as? JsonPrimitive)?.takeIf { it.isString }?.content
         ?: throw JsonEventFormatException("'$name' must be a JSON string holding Base64-encoded data")
     return try {
         Base64Data(Base64.decode(text))
@@ -78,7 +77,7 @@ internal fun jsonKind(element: JsonElement): String = when (element) {
     is JsonPrimitive ->
         when {
             element.booleanOrNull != null -> "JSON boolean"
-            element.contentOrNull != null -> "JSON string"
+            element.isString -> "JSON string"
             else -> "JSON number"
         }
     JsonNull -> "JSON null"

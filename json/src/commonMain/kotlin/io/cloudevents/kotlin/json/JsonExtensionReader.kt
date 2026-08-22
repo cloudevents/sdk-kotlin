@@ -13,15 +13,28 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 
 /** Collects unknown top-level members (satisfying the naming rules) as an open extension key set. */
 internal fun readExtensions(root: JsonObject, specVersion: SpecVersion, builder: CloudEventBuilder) {
-    for ((name, value) in root) {
-        if (!isReservedMember(name, specVersion) && value !is JsonNull) {
-            builder.extension(name, decodeExtensionValue(value, name))
-        }
+    for (member in removable(root, specVersion)) {
+        addExtension(builder, member.key, member.value)
+    }
+}
+
+/**
+ * The members that survive attribute/data extraction and may become extensions (non-reserved, not a
+ * null member — a `null` extension is treated as unset per spec 2.2).
+ */
+private fun removable(root: JsonObject, specVersion: SpecVersion): List<Map.Entry<String, JsonElement>> =
+    root.entries.filter { !isReservedMember(it.key, specVersion) && it.value !is JsonNull }
+
+private fun addExtension(builder: CloudEventBuilder, name: String, element: JsonElement) {
+    val value = decodeExtensionValue(element, name)
+    try {
+        builder.extension(name, value)
+    } catch (e: IllegalArgumentException) {
+        throw JsonEventFormatException("Unknown member '$name' is not a valid extension attribute", e)
     }
 }
 
@@ -57,11 +70,10 @@ private fun toAttributeValue(element: JsonElement): CloudEventAttributeValue? {
     val primitive = element as? JsonPrimitive ?: return null
     val integer = primitive.intOrNull
     val flag = primitive.booleanOrNull
-    val text = primitive.contentOrNull
     return when {
         integer != null -> IntegerValue(integer)
         flag != null -> BooleanValue(flag)
-        text != null -> StringValue(text)
+        primitive.isString -> StringValue(primitive.content)
         else -> null
     }
 }

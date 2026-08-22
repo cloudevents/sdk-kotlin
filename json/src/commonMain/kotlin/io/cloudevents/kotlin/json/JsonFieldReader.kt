@@ -25,7 +25,7 @@ internal fun optionalString(root: JsonObject, name: String): String? = readStrin
 /** Reads a member that must be a JSON string when present; `null`/absent/null-literal yield null. */
 internal fun readStringMember(root: JsonObject, name: String): String? {
     val element = root[name]
-    val text = (element as? JsonPrimitive)?.content
+    val text = (element as? JsonPrimitive)?.takeIf { it.isString }?.content
     return when {
         element == null -> null
         element is JsonNull -> null
