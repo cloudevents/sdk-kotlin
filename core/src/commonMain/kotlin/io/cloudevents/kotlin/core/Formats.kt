@@ -6,10 +6,13 @@ import kotlin.time.Instant
 
 /**
  * Format and type checkers for the CloudEvents type system, shared by validation and, in future,
- * by event-format parsing. All checks run identically on every target from `commonMain`.
+ * event-format parsing. All checks run identically on every target from `commonMain`. The object
+ * and the checkers the JSON module needs are public so event-format modules reuse them instead of
+ * reimplementing spec-derived grammar (see ADR 0006); the object itself is stateless, so exposing
+ * it adds no behavioral surface.
  */
 @Suppress("TooManyFunctions") // Cohesive set of small single-purpose type/format checkers.
-internal object Formats {
+public object Formats {
     private const val C0_CONTROL_END = 0x1F
     private const val DEL = 0x7F
     private const val C1_CONTROL_END = 0x9F
@@ -45,31 +48,32 @@ internal object Formats {
         Regex("^(?:([^:/?#]+):)?(?://([^/?#]*))?([^?#]*)(?:\\?([^#]*))?(?:#(.*))?\$")
 
     /** True if [text] is a valid RFC 3339 date-time (an instant, so an offset is required). */
-    fun isRfc3339(text: String): Boolean = runCatching { Instant.parse(text) }.isSuccess
+    public fun isRfc3339(text: String): Boolean = runCatching { Instant.parse(text) }.isSuccess
 
     /** True if [text] parses as a signed 32-bit integer (rejects out-of-range and non-numeric). */
-    fun isSignedInt32(text: String): Boolean = text.toIntOrNull() != null
+    public fun isSignedInt32(text: String): Boolean = text.toIntOrNull() != null
 
     /**
      * True if [text] is a valid RFC 2045 §6.1 content-transfer-encoding — an RFC 2045 token: a
      * non-empty run of US-ASCII characters excluding space, control characters, and `tspecials`.
      */
-    fun isContentTransferEncoding(text: String): Boolean = text.isNotEmpty() && text.all { it.isRfc2045TokenChar() }
+    public fun isContentTransferEncoding(text: String): Boolean =
+        text.isNotEmpty() && text.all { it.isRfc2045TokenChar() }
 
     private fun Char.isRfc2045TokenChar(): Boolean = code in TOKEN_CHAR_MIN..TOKEN_CHAR_MAX && this !in TSPECIALS
 
     /** True if [text] is an RFC 3986 URI-reference (a relative reference is permitted). */
-    fun isUriReference(text: String): Boolean = isWellFormedUri(text)
+    public fun isUriReference(text: String): Boolean = isWellFormedUri(text)
 
     /** True if [text] is an RFC 3986 absolute URI (a scheme is required). */
-    fun isAbsoluteUri(text: String): Boolean = hasScheme(text) && isWellFormedUri(text)
+    public fun isAbsoluteUri(text: String): Boolean = hasScheme(text) && isWellFormedUri(text)
 
     /**
      * Returns a human-readable reason if [text] is not a valid CloudEvents `String` value, or `null`
      * if it is valid. Rejects control characters (U+0000–U+001F, U+007F–U+009F), Unicode
      * noncharacters, and unpaired surrogates.
      */
-    fun firstStringViolation(text: String): String? {
+    public fun firstStringViolation(text: String): String? {
         val codePoints = decodeCodePoints(text) ?: return "contains an unpaired surrogate"
         return codePoints.firstNotNullOfOrNull(::codePointViolation)
     }
