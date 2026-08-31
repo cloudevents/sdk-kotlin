@@ -2,7 +2,7 @@
 kotlin = "2.4.0"
 testBalloon = "1.0.1-K2.4.0"
 detekt = "1.23.8"
-spotless = "8.8.0"
+spotless = "8.10.1"
 ktlint = "1.6.0"
 gradlePreCommit = "2.1.20"
 axionRelease = "1.21.2"
