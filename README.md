@@ -47,8 +47,8 @@ every feature it provides is available on **all** supported targets.
 |:-----------------------|:-----------------------------------------------------:|:-----------------------------------------------------:|:----------|
 | CloudEvents Core       | :heavy_check_mark:<sup>†</sup>                        | :heavy_check_mark:                                    | All targets<sup>‡</sup> |
 | JSON Event Format      | :heavy_check_mark:<sup>§</sup>                        | :heavy_check_mark:                                    | All targets<sup>‡</sup> |
+| Protobuf Event Format  | :heavy_check_mark:<sup>§§</sup>                       | :heavy_check_mark:                                    | All targets<sup>‡</sup> |
 | Avro Event Format      | :x:                                                   | :x:                                                   | —         |
-| Protobuf Event Format  | :x:                                                   | :x:                                                   | —         |
 | HTTP Protocol Binding  | :x:                                                   | :x:                                                   | —         |
 | Kafka Protocol Binding | :x:                                                   | :x:                                                   | —         |
 | AMQP Protocol Binding  | :x:                                                   | :x:                                                   | —         |
@@ -70,6 +70,12 @@ their tests only on macOS/Windows CI runners (marked "Planned CI").</sub>
 <sub>§ The JSON event format (`:cloudevents-kotlin-json`) supports structured-mode
 `application/cloudevents+json` and batch-mode `application/cloudevents-batch+json` for
 both v1.0 and v0.3 — see [JSON Event Format](#json-event-format) below.</sub>
+<br>
+<sub>§§ The protobuf event format (`:cloudevents-kotlin-protobuf`) supports structured-mode
+`application/cloudevents+protobuf` and batch-mode `application/cloudevents-batch+protobuf` for
+both v1.0 and v0.3 on the spec's `cloudevents.proto` message schema, with the `oneof data`
+(binary/text/proto-Any) fully supported — see [Protobuf Event Format](#protobuf-event-format)
+below.</sub>
 
 ---
 
@@ -79,7 +85,8 @@ both v1.0 and v0.3 — see [JSON Event Format](#json-event-format) below.</sub>
 |--------|--------|-------------|
 | `:core` | Active | CloudEvent data model, type system, attribute validation, and Message-SPI interfaces. Stdlib-only, no third-party runtime dependencies. |
 | `:cloudevents-kotlin-json` | Active | JSON event format: encode/decode structured-mode `application/cloudevents+json` and batch-mode `application/cloudevents-batch+json` for v1.0 and v0.3. Uses kotlinx-serialization. |
-| Format modules (Avro, Protobuf) | Planned | Encode and decode CloudEvents in each event format. |
+| `:cloudevents-kotlin-protobuf` | Active | Protobuf event format: encode/decode structured-mode `application/cloudevents+protobuf` and batch-mode `application/cloudevents-batch+protobuf` for v1.0 and v0.3. Full `oneof data` (binary/text/proto-Any). Uses kotlinx-serialization-protobuf. |
+| Format modules (Avro) | Planned | Encode and decode CloudEvents in each event format. |
 | Protocol binding modules (HTTP, Kafka, AMQP, ...) | Planned | Transport-specific binary and structured content modes. |
 
 ---
@@ -238,6 +245,46 @@ or base64-in-`data` with `datacontentencoding: "base64"` (v0.3); explicit `data:
 kept distinct from an absent `data` member. Timestamps are canonicalized to UTC (compare by
 `Instant`, never by canonical-string bytes). Decoding validates strictly by default — an
 invalid event throws `JsonEventFormatException` rather than being silently trusted.
+
+---
+
+## Protobuf Event Format
+
+The `:cloudevents-kotlin-protobuf` module implements the CloudEvents
+[protobuf event format](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/formats/protobuf-format.md)
+for both supported wire versions (v1.0 and v0.3), on every KMP target. It encodes and decodes
+structured-mode `application/cloudevents+protobuf` messages and batch-mode
+`application/cloudevents-batch+protobuf` envelopes. The wire schema is the spec's
+`cloudevents.proto` (vendored in the module) mirrored by hand-written `@Serializable` classes over
+`kotlinx-serialization-protobuf` — the same kotlinx.serialization release train as the JSON module.
+All types live in the `io.cloudevents.kotlin.protobuf` package and the entry point is the
+`ProtobufEventFormat` object.
+
+```kotlin
+import io.cloudevents.kotlin.protobuf.ProtobufEventFormat
+import io.cloudevents.kotlin.protobuf.ProtobufEventData
+import io.cloudevents.kotlin.core.CloudEvent
+
+// Encode a single event (structured mode).
+val bytes: ByteArray = ProtobufEventFormat.encodeToByteArray(event)
+
+// Decode a structured-mode message. Strict validation by default — an invalid event throws.
+val decoded: CloudEvent = ProtobufEventFormat.decodeFromByteArray(bytes)
+
+// Batch mode: a list of events ↔ a CloudEventBatch message (mixed versions allowed).
+val batch: ByteArray = ProtobufEventFormat.encodeBatch(listOf(event))
+val events: List<CloudEvent> = ProtobufEventFormat.decodeBatch(batch)
+```
+
+The codec follows the reference sdk-java serializer: required attributes are dedicated proto fields
+(`id`/`source`/`spec_version`/`type`), while optional and extension attributes ride the `attributes`
+map as `CloudEventAttributeValue` oneof values. Data routing: binary payloads → `binary_data`;
+text-declared content (`text/`, JSON, XML, `+json`/`+xml`) → `text_data`; an explicit
+`ProtobufEventData.Proto(typeUrl, value)` payload (or a `datacontenttype` of
+`application/protobuf`, parsed as a `google.protobuf.Any`) → `proto_data`. Timestamps
+are structured `google.protobuf.Timestamp` (UTC seconds + nanos). Conformance is proven by vendored
+sdk-java-mirrored fixture vectors serialized with the canonical google reference implementation
+(protoc + protobuf-java-util), plus hand-computed golden bytes for the fixed-field wire encoding.
 
 ---
 
