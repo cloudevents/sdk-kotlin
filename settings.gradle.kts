@@ -70,3 +70,6 @@ project(":core").name = "cloudevents-kotlin-core"
 
 include(":json")
 project(":json").name = "cloudevents-kotlin-json"
+
+include(":protobuf")
+project(":protobuf").name = "cloudevents-kotlin-protobuf"
