@@ -72,7 +72,7 @@ jobs:
         # Regenerate the CycloneDX SBOM now that the release tag exists so it carries the
         # release version. This runs before any changelog file is written, so the working tree
         # is still clean and axion-release resolves the exact released (non-SNAPSHOT) version.
-        run: ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom :cloudevents-kotlin-json:cyclonedxDirectBom
+        run: ./gradlew :cloudevents-kotlin-core:cyclonedxDirectBom :cloudevents-kotlin-json:cyclonedxDirectBom :cloudevents-kotlin-protobuf:cyclonedxDirectBom
       - name: Generate release notes
         # git-cliff turns the Conventional Commits of the tag created above into the release
         # body. --latest selects only that tag's section; the tag is already in the checkout.
@@ -93,7 +93,8 @@ jobs:
             --title "$TAG" \
             --notes-file RELEASE_NOTES.md \
             core/build/reports/cyclonedx/bom.cdx.json \
-            json/build/reports/cyclonedx/bom.cdx.json
+            json/build/reports/cyclonedx/bom.cdx.json \
+            protobuf/build/reports/cyclonedx/bom.cdx.json
       - name: Regenerate CHANGELOG.md
         # The cumulative changelog covering every release, written to the repository root.
         uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0

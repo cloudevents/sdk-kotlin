@@ -78,7 +78,7 @@ jobs:
           # Every module that shares code into commonMain is scanned; a missing/absent
           # module tree contributes nothing (the per-dir `|| true` tolerates it).
           violations=""
-          for dir in core/src/commonMain json/src/commonMain; do
+          for dir in core/src/commonMain json/src/commonMain protobuf/src/commonMain; do
             or_violations=$(grep -rnE "^import (java|javax|kotlin\.jvm)\." "$dir" 2>/dev/null || true)
             violations="$violations$or_violations"
           done
@@ -92,7 +92,7 @@ jobs:
         run: ./gradlew ${{ matrix.tasks }}
       - name: Generate Kover code coverage report
         if: matrix.quality
-        run: ./gradlew :cloudevents-kotlin-core:koverHtmlReport :cloudevents-kotlin-core:koverXmlReport :cloudevents-kotlin-json:koverHtmlReport :cloudevents-kotlin-json:koverXmlReport
+        run: ./gradlew :cloudevents-kotlin-core:koverHtmlReport :cloudevents-kotlin-core:koverXmlReport :cloudevents-kotlin-json:koverHtmlReport :cloudevents-kotlin-json:koverXmlReport :cloudevents-kotlin-protobuf:koverHtmlReport :cloudevents-kotlin-protobuf:koverXmlReport
       - name: Upload coverage artifact
         if: matrix.quality
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -101,10 +101,11 @@ jobs:
           path: |
             core/build/reports/kover
             json/build/reports/kover
+            protobuf/build/reports/kover
           if-no-files-found: error
       - name: Generate Dokka API documentation
         if: matrix.quality
-        run: ./gradlew :cloudevents-kotlin-core:dokkaGenerate :cloudevents-kotlin-json:dokkaGenerate
+        run: ./gradlew :cloudevents-kotlin-core:dokkaGenerate :cloudevents-kotlin-json:dokkaGenerate :cloudevents-kotlin-protobuf:dokkaGenerate
       - name: Upload api-docs artifact
         if: matrix.quality
         # api-docs are uploaded as a build artifact only in this change; nothing is published.
@@ -120,6 +121,7 @@ jobs:
           path: |
             core/build/dokka
             json/build/dokka
+            protobuf/build/dokka
           if-no-files-found: error
       - name: Verify dependency metadata integrity
         if: matrix.quality
