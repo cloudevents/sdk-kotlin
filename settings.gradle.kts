@@ -19,7 +19,7 @@ plugins {
     // Settings-level plugins cannot consume the version catalog (`libs` is not available
     // in a settings `plugins {}` block), so this version is a literal. Keep it in sync with
     // the `gradlePreCommit` entry in gradle/libs.versions.toml, which is the reference source.
-    id("org.danilopianini.gradle-pre-commit-git-hooks") version "2.1.20"
+    id("org.danilopianini.gradle-pre-commit-git-hooks") version "2.1.23"
 }
 
 gitHooks {
