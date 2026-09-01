@@ -60,10 +60,10 @@ jobs:
             quality: false
             tasks: mingwX64Test
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: temurin
           java-version: "21"
@@ -95,7 +95,7 @@ jobs:
         run: ./gradlew :cloudevents-kotlin-core:koverHtmlReport :cloudevents-kotlin-core:koverXmlReport :cloudevents-kotlin-json:koverHtmlReport :cloudevents-kotlin-json:koverXmlReport :cloudevents-kotlin-protobuf:koverHtmlReport :cloudevents-kotlin-protobuf:koverXmlReport
       - name: Upload coverage artifact
         if: matrix.quality
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage
           path: |
@@ -115,7 +115,7 @@ jobs:
         # permissions and an id-token: write. That is intentionally out of scope here because it
         # needs write-scoped contents permissions and a Pages environment, so the upload stays
         # artifact-only.
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: api-docs
           path: |
