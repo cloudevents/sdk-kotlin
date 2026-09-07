@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.4.0"
+kotlin = "2.4.20"
 testBalloon = "1.0.1-K2.4.0"
 detekt = "1.23.8"
 spotless = "8.10.1"
