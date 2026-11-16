@@ -12,7 +12,9 @@
   "configMigration": true,
   "osvVulnerabilityAlerts": true,
   "labels": ["dependencies"],
-  "dependencyDashboardTitle": "Renovate: dependency dashboard",
+  "dependencyDashboard": {
+    "title": "Renovate: dependency dashboard"
+  },
   "packageRules": [
     {
       "description": "Bundle non-plugin library bumps from the version catalog and every KMP sourceSet dependency block (common/jvm/js/wasmJs/native/apple) into one PR. The Gradle manager reads coordinates from the build files rather than resolving per-target graphs, so dependencies added for any target are picked up here.",
